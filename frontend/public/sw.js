@@ -1,14 +1,27 @@
-// Online-only service worker (Phase 1 PWA shell).
-// - Makes the app installable and shows a bilingual page when there is no connection.
-// - Caches only the app's static files. API responses are never cached, so no
-//   personal data is stored on the device (FR-D16). Offline work arrives in Phase 4.
-const VERSION = "v1";
+// Service worker (FR-PW1, FR-PW3).
+// - Makes the app installable, and opens it without a connection: pages are fetched from the
+//   network first, and the last good copy of the app is used when there is none.
+// - Caches only the app's static files. API responses are never cached here: the app keeps the
+//   user's offline data itself, in IndexedDB, and sign-out wipes both (FR-PW12).
+const VERSION = "v3";
 const SHELL_CACHE = `sces-shell-${VERSION}`;
 const ASSET_CACHE = "sces-assets";
-const SHELL = ["/offline.html", "/offline.css", "/offline.js", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const APP = "/index.html";
+const SHELL = ["/", "/offline.html", "/offline.css", "/offline.js", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+
+// The first visit loads the app before this worker controls the page, so its built files never
+// pass through here: read them from the page itself and cache them now, or the app would not
+// open offline after a first visit.
+async function cacheBuiltAssets() {
+  const html = await (await fetch("/", { cache: "no-store" })).text();
+  const assets = [...new Set(html.match(/\/assets\/[^"'\s>]+/g) || [])];
+  const cache = await caches.open(ASSET_CACHE);
+  await cache.addAll(assets);
+  await (await caches.open(SHELL_CACHE)).put(APP, new Response(html, { headers: { "Content-Type": "text/html" } }));
+}
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL)));
+  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL)).then(cacheBuiltAssets));
   self.skipWaiting();
 });
 
@@ -28,14 +41,30 @@ self.addEventListener("fetch", (event) => {
     return; // straight to the network
   }
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/offline.html")));
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const copy = response.clone();
+            void caches.open(SHELL_CACHE).then((cache) => cache.put(APP, copy));
+          }
+          return response;
+        })
+        .catch(
+          async () =>
+            (await caches.match(APP, { ignoreVary: true })) ||
+            (await caches.match("/", { ignoreVary: true })) ||
+            caches.match("/offline.html", { ignoreVary: true }),
+        ),
+    );
     return;
   }
   if (url.pathname.startsWith("/assets/")) {
     // Built assets have content hashes in their names, so a cached copy never goes stale.
     event.respondWith(
       caches.open(ASSET_CACHE).then(async (cache) => {
-        const cached = await cache.match(request);
+        // ignoreVary: the copy cached at install was fetched with other headers than the page's.
+        const cached = await cache.match(request, { ignoreVary: true });
         if (cached) return cached;
         const response = await fetch(request);
         if (response.ok) cache.put(request, response.clone());

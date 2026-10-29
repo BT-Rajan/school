@@ -15,19 +15,20 @@ function csrfToken(): string {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-type Options = { method?: string; body?: unknown; form?: FormData };
+type Options = { method?: string; body?: unknown; form?: FormData; raw?: Blob };
 
-async function request(path: string, { method = "GET", body, form }: Options = {}): Promise<Response> {
+async function request(path: string, { method = "GET", body, form, raw }: Options = {}): Promise<Response> {
   const headers: Record<string, string> = { Accept: "application/json" };
   if (method !== "GET") headers["X-CSRF-Token"] = csrfToken();
   if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (raw !== undefined) headers["Content-Type"] = "application/octet-stream";
   let response: Response;
   try {
     response = await fetch(path, {
       method,
       headers,
       credentials: "same-origin",
-      body: form ?? (body !== undefined ? JSON.stringify(body) : undefined),
+      body: raw ?? form ?? (body !== undefined ? JSON.stringify(body) : undefined),
     });
   } catch {
     throw new ApiError(0, "network_error");

@@ -17,6 +17,8 @@ import Imports from "./pages/Imports";
 import Invitation from "./pages/Invitation";
 import Login from "./pages/Login";
 import Notifications, { useInbox } from "./pages/Notifications";
+import Outbox from "./pages/Outbox";
+import { useOnline, usePrepareOffline, useQueue } from "./offline/hooks";
 import ReferenceLists from "./pages/ReferenceLists";
 import ReportPage from "./pages/ReportPage";
 import RequestPage from "./pages/RequestPage";
@@ -66,6 +68,9 @@ function Shell({ children }: { children: ReactNode }) {
   const { me, district, signOut } = useSession();
   const inbox = useInbox(!!me);
   const live = useRealtime(me?.id ?? null);
+  const online = useOnline();
+  const waiting = useQueue().length;
+  usePrepareOffline(me?.role === "supervisor");
   const unread = inbox.data?.unread ?? 0;
   return (
     <>
@@ -80,9 +85,12 @@ function Shell({ children }: { children: ReactNode }) {
         <LanguageSwitch />
         {me && (
           <>
-            <span className={`live live-${live}`} role="status" title={t(`live.${live}`)}>
-              <span className="visually-hidden">{t(`live.${live}`)}</span>
+            <span className={`live live-${online ? live : "offline"}`} role="status" title={t(`live.${online ? live : "offline"}`)}>
+              <span className="visually-hidden">{t(`live.${online ? live : "offline"}`)}</span>
             </span>
+            {waiting > 0 && (
+              <NavLink to="/outbox" className="badge badge-warn">{t("offline.waiting", { count: waiting })}</NavLink>
+            )}
             <NavLink to="/notifications" className="bell" aria-label={t("notifications.unread", { count: unread })}>
               🔔{unread > 0 && <span className="bell-count">{unread > 99 ? "99+" : unread}</span>}
             </NavLink>
@@ -148,6 +156,7 @@ export default function App() {
         <Route path="/requests/:id" element={<Protected roles={REQUESTS}><RequestPage /></Protected>} />
         <Route path="/dashboard" element={<Protected roles={SUPERVISOR}><Dashboard /></Protected>} />
         <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
+        <Route path="/outbox" element={<Protected><Outbox /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

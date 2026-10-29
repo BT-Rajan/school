@@ -1,13 +1,15 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 
-import { api, query } from "../api";
+import { api, ApiError, query } from "../api";
 import { DateField, ErrorMessage, Modal, PageHeader, Pager, SelectField, StatusBadge, useAction } from "../components";
 import { formatDate } from "../format";
+import { isOfflineError } from "../offline/hooks";
+import * as queue from "../offline/queue";
 import { useSession } from "../session";
-import type { Assignment, Evaluation, EvaluationSummary, FormSummary, Page, Teacher } from "../types";
+import type { Assignment, Evaluation, EvaluationSummary, FormDetail, FormSummary, Page, Teacher } from "../types";
 
 const PAGE_SIZE = 50;
 
@@ -100,18 +102,55 @@ function StartDialog({ onClose, initialSchool }: { onClose: () => void; initialS
     queryFn: () => api<Page<Teacher>>(`/api/teachers${query({ school_id: schoolId, status: "active", page_size: 200 })}`),
     enabled: forTeacher && !!schoolId,
   });
+  const client = useQueryClient();
+  const { me } = useSession();
   const start = useAction(async () => {
-    const created = await api<Evaluation>("/api/evaluations", {
-      method: "POST",
-      body: {
-        form_id: Number(formId),
-        school_id: Number(schoolId),
-        teacher_id: forTeacher && teacherId ? Number(teacherId) : null,
-        visit_date: visitDate || null,
-        client_key: key,
-      },
-    });
-    navigate(`/evaluations/${created.id}`);
+    const body = {
+      form_id: Number(formId),
+      school_id: Number(schoolId),
+      teacher_id: forTeacher && teacherId ? Number(teacherId) : null,
+      visit_date: visitDate || null,
+      client_key: key,
+    };
+    try {
+      const created = await api<Evaluation>("/api/evaluations", { method: "POST", body });
+      navigate(`/evaluations/${created.id}`);
+    } catch (error) {
+      if (!isOfflineError(error)) throw error;
+      // FR-PW4: start it on the device; the same client key creates it once online.
+      const detail = client.getQueryData<FormDetail>(["form", formId]);
+      const assignment = schools.find((a) => String(a.school.id) === schoolId);
+      if (!detail || !form || !assignment) throw new ApiError(0, "not_available_offline");
+      const teacher = teachers.data?.items.find((tc) => String(tc.id) === teacherId);
+      const localId = -Date.now();
+      const local: Evaluation = {
+        id: localId,
+        form_id: form.id,
+        report: { code: form.report.code, version_code: form.catalog.version_code, title_en: form.catalog.title_en, title_ar: form.catalog.title_ar },
+        subject_type: form.report.subject_type,
+        school: assignment.school,
+        teacher: teacher ? { id: teacher.id, name: teacher.name } : null,
+        supervisor: { id: assignment.supervisor.id, name: me?.name ?? "" },
+        status: "draft",
+        visit_date: body.visit_date,
+        submitted_at: null,
+        amended_at: null,
+        form_status: form.status,
+        form_end_date: form.end_date,
+        version: 0,
+        request: null,
+        visit_notes: null,
+        location: null,
+        cancel_reason: null,
+        sections: detail.schema.sections
+          .filter((s) => s.respondent === "supervisor")
+          .map((s) => ({ key: s.key, respondent: "supervisor" as const, status: "not_started", answers: {}, submitted_at: null })),
+      };
+      await queue.saveLocalEvaluation(local);
+      client.setQueryData(["evaluation", String(localId)], local);
+      await queue.enqueueStart(localId, body, `${form.report.code} · ${assignment.school.name}`);
+      navigate(`/evaluations/${localId}`);
+    }
   });
   const title = (f: FormSummary) => (i18n.language === "ar" ? f.catalog.title_ar || f.catalog.title_en : f.catalog.title_en || f.catalog.title_ar);
   const active = (forms.data ?? []).filter((f) => f.status === "active");

@@ -40,12 +40,31 @@ def me_out(db: Session, user: User) -> MeOut:
     )
 
 
+# The cookies outlive a closed browser, so work queued offline can be sent when the app is
+# reopened (FR-PW4). The server still ends the session itself, on idle (FR-A6) or revocation.
+COOKIE_MAX_AGE = 30 * 24 * 3600
+
+
 def set_session_cookies(response: Response, session_token: str) -> None:
     secure = get_settings().cookie_secure
-    response.set_cookie(SESSION_COOKIE, session_token, httponly=True, secure=secure, samesite="strict", path="/api")
+    response.set_cookie(
+        SESSION_COOKIE,
+        session_token,
+        max_age=COOKIE_MAX_AGE,
+        httponly=True,
+        secure=secure,
+        samesite="strict",
+        path="/api",
+    )
     # Readable by the client, which echoes it in the X-CSRF-Token header.
     response.set_cookie(
-        CSRF_COOKIE, service.csrf_token_for(session_token), httponly=False, secure=secure, samesite="strict", path="/"
+        CSRF_COOKIE,
+        service.csrf_token_for(session_token),
+        max_age=COOKIE_MAX_AGE,
+        httponly=False,
+        secure=secure,
+        samesite="strict",
+        path="/",
     )
 
 

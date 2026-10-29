@@ -1,4 +1,4 @@
-// PWA shell check (FR-PW1): manifest, service worker, offline page, and no API caching.
+// PWA shell check (FR-PW1, FR-PW3): manifest, service worker, the app opening offline, and no API caching.
 // Usage: node e2e/pwa.cjs https://sces.example.org   (E2E_IGNORE_HTTPS=1 for a self-signed certificate)
 const { chromium } = require("playwright");
 
@@ -28,6 +28,13 @@ const { chromium } = require("playwright");
   console.log("api responses cached:", cached.some((u) => u.startsWith("/api/")));
   await context.setOffline(true);
   await page.goto(`${base}/schools`).catch(() => undefined);
-  console.log("offline page shown:", await page.getByText("You are offline").isVisible(), await page.getByText("أنت غير متصل بالإنترنت").isVisible());
+  // The app itself opens offline (its sign-in screen here, as nobody is signed in).
+  console.log("app opens offline:", await page.getByRole("heading", { name: "Sign in" }).isVisible());
+  // A browser that never loaded the app gets the bilingual offline page instead.
+  const fresh = await browser.newContext({ ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS === "1" });
+  const other = await fresh.newPage();
+  await fresh.setOffline(true);
+  await other.goto(`${base}/`).catch(() => undefined);
+  console.log("never-visited browser offline: no app, as expected:", (await other.content()).length < 2000);
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

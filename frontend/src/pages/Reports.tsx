@@ -7,7 +7,9 @@ import { api, ApiError, query } from "../api";
 import { DateField, ErrorMessage, Modal, PageHeader, Pager, SelectField, StatusBadge, TextField, useAction } from "../components";
 import { formatDate, formatDateTime } from "../format";
 import { useClusters } from "../hooks";
-import PagePicker, { type Picked, readyIds } from "../reports/PagePicker";
+import { isOfflineError } from "../offline/hooks";
+import * as queue from "../offline/queue";
+import PagePicker, { type Picked, queueable, readyIds } from "../reports/PagePicker";
 import { useSession } from "../session";
 import type { Assignment, CatalogReport, DocumentDetail, DocumentSummary, EvaluationSummary, Page, Teacher } from "../types";
 import { newKey, todayIn } from "./Evaluations";
@@ -144,20 +146,36 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
     enabled: !!schoolId,
   });
   const ids = readyIds(pages);
+  const canQueue = queueable(pages);
+  const metadata = () => ({
+    ministry_report_version_id: Number(versionId),
+    school_id: Number(schoolId),
+    teacher_id: forTeacher && teacherId ? Number(teacherId) : null,
+    evaluation_id: evaluationId ? Number(evaluationId) : null,
+    report_date: reportDate,
+    title: title || null,
+    notes: notes || null,
+  });
+  /** FR-PW4, FR-D6: no connection, so the pages wait on the device and upload later. */
+  const keepOnDevice = async () => {
+    const label = `${versions.find((x) => String(x.version.id) === versionId)?.report.report_code ?? ""} · ${schools.get(Number(schoolId))?.name ?? ""}`;
+    try {
+      await queue.enqueueDocument(pages.map((p) => p.source), metadata(), submitNow, label);
+    } catch (error) {
+      if (error instanceof queue.QueueFullError) throw new ApiError(0, "offline_queue_full");
+      throw error;
+    }
+    navigate("/outbox");
+  };
   const save = useAction(async (confirmDuplicate: boolean) => {
+    if (!ids) return keepOnDevice();
     let doc: DocumentDetail;
     try {
       doc = await api<DocumentDetail>("/api/documents", {
         method: "POST",
         body: {
+          ...metadata(),
           file_ids: ids,
-          ministry_report_version_id: Number(versionId),
-          school_id: Number(schoolId),
-          teacher_id: forTeacher && teacherId ? Number(teacherId) : null,
-          evaluation_id: evaluationId ? Number(evaluationId) : null,
-          report_date: reportDate,
-          title: title || null,
-          notes: notes || null,
           client_key: key,
           device_time: new Date().toISOString(),
           confirm_duplicate: confirmDuplicate,
@@ -168,6 +186,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
         setDuplicate((error.detail as { document_id: number }).document_id);
         return;
       }
+      if (isOfflineError(error)) return keepOnDevice();
       throw error;
     }
     if (submitNow) {
@@ -224,7 +243,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
         <ErrorMessage error={save.error ?? catalog.error ?? assignments.error} />
         <div className="form-actions">
           <button type="button" onClick={onClose}>{t("common.cancel")}</button>
-          <button type="submit" className="primary" disabled={save.busy || !ids || !versionId || !schoolId}>
+          <button type="submit" className="primary" disabled={save.busy || !(ids || canQueue) || !versionId || !schoolId}>
             {submitNow ? t("reports.uploadAndSubmit") : t("reports.saveDraft")}
           </button>
         </div>

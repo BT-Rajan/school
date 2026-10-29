@@ -187,6 +187,11 @@ td .row-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 .live-connecting { background: #e0a400; }
 .live-offline { background: var(--danger); }
 
+/* Offline queue */
+.alert-warn { background: #fff4dc; color: #7a5200; border: 1px solid #f0d28a; }
+.outbox .outbox-conflict, .outbox .outbox-failed { border-inline-start: 4px solid var(--danger); padding-inline-start: 8px; }
+.conflict-versions { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+
 /* Numbers and codes always read left to right inside Arabic text. */
 .ltr { direction: ltr; unicode-bidi: isolate; }
 

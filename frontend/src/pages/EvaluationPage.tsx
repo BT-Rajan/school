@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { api, ApiError, download } from "../api";
 import { DateField, ErrorMessage, Modal, Notice, PageHeader, StatusBadge, useAction } from "../components";
 import SectionView from "../forms/Renderer";
 import { type Answers, visibleAnswers } from "../forms/schema";
 import { formatDate, formatDateTime } from "../format";
+import { isOfflineError, useQueue } from "../offline/hooks";
+import * as queue from "../offline/queue";
 import { useSession } from "../session";
 import type { Amendment, DocumentSummary, Evaluation, FormDetail, Problem } from "../types";
 import { RequestStatus } from "./Requests";
@@ -38,7 +40,27 @@ export default function EvaluationPage() {
   const { me, district } = useSession();
   const tz = district?.time_zone ?? "UTC";
   const client = useQueryClient();
-  const evaluation = useQuery({ queryKey: ["evaluation", id], queryFn: () => api<Evaluation>(`/api/evaluations/${id}`) });
+  const navigate = useNavigate();
+  const numericId = Number(id);
+  // Started offline: a negative id held on the device until the server gives the real one.
+  const isLocal = numericId < 0;
+  const evaluation = useQuery({
+    queryKey: ["evaluation", id],
+    queryFn: async () => {
+      if (!isLocal) return api<Evaluation>(`/api/evaluations/${id}`);
+      const local = await queue.localEvaluation(numericId);
+      if (!local) throw new ApiError(404, "not_found");
+      return local;
+    },
+  });
+  const items = useQueue();
+  const queued = items.filter((i) => i.kind.startsWith("evaluation.") && i.ref === numericId);
+  const submitQueued = queued.some((i) => i.kind === "evaluation.submit");
+  useEffect(() => {
+    if (!isLocal) return;
+    // Once the server has it, show the real record.
+    void queue.serverId(numericId).then((real) => real && navigate(`/evaluations/${real}`, { replace: true }));
+  }, [isLocal, numericId, items, navigate]);
   const e = evaluation.data;
   const form = useQuery({
     queryKey: ["form", String(e?.form_id)],
@@ -97,12 +119,40 @@ export default function EvaluationPage() {
     setNotice(message);
     await client.invalidateQueries({ queryKey: ["evaluations"] });
   };
+  /** FR-PW4: no connection, so the change waits on the device and is sent in order later. */
+  const keepOnDevice = async (andSubmit: boolean) => {
+    const body = payload();
+    const label = `${e!.report.code} · ${e!.school.name}`;
+    await queue.enqueueSave(numericId, isLocal ? null : e!.version, body, label);
+    if (andSubmit) await queue.enqueueSubmit(numericId, label);
+    const updated: Evaluation = {
+      ...e!,
+      visit_date: body.visit_date,
+      visit_notes: body.visit_notes,
+      sections: e!.sections.map((s) =>
+        s.respondent === "supervisor" ? { ...s, answers: body.sections[s.key] ?? s.answers, status: "in_progress" } : s,
+      ),
+    };
+    if (isLocal) await queue.saveLocalEvaluation(updated);
+    client.setQueryData(["evaluation", id], updated);
+    reset(updated);
+    setNotice(andSubmit ? t("offline.submitQueued") : t("offline.savedOnDevice"));
+  };
   const save = useAction(async () => {
-    const updated = await api<Evaluation>(`/api/evaluations/${id}`, { method: "PATCH", body: { version: e!.version, ...payload() } });
-    await after(updated, t("evaluations.draftSaved"));
-    return updated;
+    if (isLocal) return keepOnDevice(false);
+    try {
+      const updated = await api<Evaluation>(`/api/evaluations/${id}`, { method: "PATCH", body: { version: e!.version, ...payload() } });
+      await after(updated, t("evaluations.draftSaved"));
+    } catch (error) {
+      if (!isOfflineError(error)) throw error;
+      await keepOnDevice(false);
+    }
   });
   const submit = useAction(async () => {
+    if (isLocal || !navigator.onLine) {
+      if (!window.confirm(t("evaluations.confirmSubmit"))) return;
+      return keepOnDevice(true);
+    }
     let current = e!;
     if (dirty) {
       current = await api<Evaluation>(`/api/evaluations/${id}`, { method: "PATCH", body: { version: current.version, ...payload() } });
@@ -132,7 +182,7 @@ export default function EvaluationPage() {
 
   if (evaluation.error) return <ErrorMessage error={evaluation.error} />;
   if (!e || !form.data) return <p>{t("common.loading")}</p>;
-  const editing = own && (e.status === "draft" || amending);
+  const editing = own && !submitQueued && (e.status === "draft" || amending);
   const problems = [...answerProblems(save.error), ...answerProblems(submit.error), ...answerProblems(amend.error)];
   const visitProblems = problems.filter((p) => p.where === "visit_date");
   const title = i18n.language === "ar" ? e.report.title_ar : e.report.title_en;
@@ -143,6 +193,12 @@ export default function EvaluationPage() {
       <PageHeader title={`${e.report.code} · ${title}`}>
         <StatusBadge status={e.status} />
       </PageHeader>
+      {queued.length > 0 && (
+        <div className="alert alert-warn" role="status">
+          {submitQueued ? t("offline.submitWaiting") : t("offline.changesWaiting")}{" "}
+          <Link to="/outbox">{t("offline.seeOutbox")}</Link>
+        </div>
+      )}
       <div className="card">
         <dl className="facts">
           <dt>{t("schools.school")}</dt>

@@ -1,14 +1,20 @@
 import { type Dispatch, type SetStateAction, useState } from "react";
 import { useTranslation } from "react-i18next";
 
-import { uploadFile } from "../api";
+import { ApiError, uploadFile } from "../api";
+import { compressImage } from "../offline/compress";
+import { isOfflineError } from "../offline/hooks";
 import { useErrorText } from "../components";
 import type { UploadedFile } from "../types";
 
 export interface Picked {
   key: string;
   name: string;
+  /** The page itself, kept so it can wait on the device if there is no connection. */
+  source: File;
   file?: UploadedFile;
+  /** Not uploaded because the phone is offline: it goes into the queue instead. */
+  offline?: boolean;
   error?: unknown;
 }
 
@@ -22,18 +28,21 @@ export default function PagePicker({ pages, onChange }: { pages: Picked[]; onCha
   const [busy, setBusy] = useState(0);
   const add = async (list: File[]) => {
     if (!list.length) return;
-    const entries: Picked[] = list.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name }));
+    const compressed = await Promise.all(list.map(compressImage));
+    const entries: Picked[] = compressed.map((f, i) => ({ key: `${Date.now()}-${i}-${f.name}`, name: f.name, source: f }));
     // Updates are applied to the latest list, so moving or removing pages during upload is kept.
     onChange((prev) => [...prev, ...entries]);
     setBusy((n) => n + entries.length);
     // One at a time keeps a phone on a weak connection from timing out on all of them at once.
-    for (const [i, file] of list.entries()) {
+    for (const [i, file] of compressed.entries()) {
       const key = entries[i].key;
       try {
+        if (!navigator.onLine) throw new ApiError(0, "network_error");
         const stored = await uploadFile<UploadedFile>(file);
         onChange((prev) => prev.map((p) => (p.key === key ? { ...p, file: stored } : p)));
       } catch (error) {
-        onChange((prev) => prev.map((p) => (p.key === key ? { ...p, error } : p)));
+        const offline = isOfflineError(error);
+        onChange((prev) => prev.map((p) => (p.key === key ? (offline ? { ...p, offline } : { ...p, error }) : p)));
       }
       setBusy((n) => n - 1);
     }
@@ -55,6 +64,8 @@ export default function PagePicker({ pages, onChange }: { pages: Picked[]; onCha
             <span dir="auto">{p.name}</span>{" "}
             {p.error ? (
               <span className="field-error">{errorText(p.error)[0]}</span>
+            ) : p.offline ? (
+              <span className="hint">{t("offline.pageOnDevice")}</span>
             ) : p.file ? (
               <span className="hint">{p.file.pages ? t("reports.pageCount", { count: p.file.pages }) : ""}</span>
             ) : (
@@ -90,4 +101,9 @@ export default function PagePicker({ pages, onChange }: { pages: Picked[]; onCha
 export function readyIds(pages: Picked[]): number[] | null {
   if (!pages.length || pages.some((p) => !p.file)) return null;
   return pages.map((p) => p.file!.id);
+}
+
+/** Every page is either uploaded or waiting on the device: the report can be queued. */
+export function queueable(pages: Picked[]): boolean {
+  return pages.length > 0 && pages.every((p) => p.file || p.offline) && pages.some((p) => p.offline);
 }

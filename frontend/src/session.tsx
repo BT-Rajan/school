@@ -3,7 +3,11 @@ import { createContext, type ReactNode, useContext, useEffect, useRef } from "re
 import { useTranslation } from "react-i18next";
 
 import { api, ApiError } from "./api";
+import i18next from "./i18n";
 import { type Locale, setLocale } from "./i18n";
+import * as store from "./offline/db";
+import * as queue from "./offline/queue";
+import { disablePush } from "./push";
 import type { District, Me } from "./types";
 
 interface Session {
@@ -37,6 +41,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   });
   const me = meQuery.data ?? null;
 
+  // A different person signing in on a shared phone starts with a clean device.
+  useEffect(() => {
+    if (!me || !meQuery.isSuccess || meQuery.isFetching) return;
+    const owner = readOwner();
+    if (owner !== null && owner !== String(me.id)) void wipeDevice().then(() => writeOwner(me.id));
+    else if (owner === null) writeOwner(me.id);
+  }, [me, meQuery.isSuccess, meQuery.isFetching]);
+
   // On sign-in, the user's saved language wins over the device's. Applied once
   // per user, so a switch made afterwards is not undone while it is being saved.
   const appliedFor = useRef<number | null>(null);
@@ -59,13 +71,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       await client.invalidateQueries({ queryKey: ["me"] });
     },
     signOut: async () => {
+      // FR-PW12: unsent work is lost with the rest of the device's data, so ask first.
+      const waiting = queue.snapshot().length;
+      if (waiting > 0 && !window.confirm(i18next.t("offline.confirmSignOut", { count: waiting }))) return;
+      await disablePush().catch(() => undefined);
       try {
         await api("/api/auth/logout", { method: "POST" });
+      } catch {
+        // Offline: finish signing out with the server once the phone is back online.
+        markPendingSignOut();
       } finally {
         // Mounted screens keep their query data, so mark the user signed out explicitly
-        // and drop everything cached for them.
+        // and drop everything cached for them, on screen and on the device.
         client.setQueryData(["me"], null);
         client.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" && q.queryKey[0] !== "district" });
+        await wipeDevice();
       }
     },
     changeLocale: (locale) => {
@@ -89,4 +109,57 @@ export function useSession(): Session {
 export function districtName(district: District | null, locale: string): string {
   if (!district) return "";
   return locale === "ar" ? district.name_ar : district.name_en;
+}
+
+const OWNER = "sces.owner";
+const PENDING_SIGN_OUT = "sces.pendingSignOut";
+
+function readOwner(): string | null {
+  try {
+    return localStorage.getItem(OWNER);
+  } catch {
+    return null;
+  }
+}
+
+function writeOwner(id: number): void {
+  try {
+    localStorage.setItem(OWNER, String(id));
+  } catch {
+    // Storage unavailable: nothing is kept on the device either.
+  }
+}
+
+function markPendingSignOut(): void {
+  try {
+    localStorage.setItem(PENDING_SIGN_OUT, "1");
+  } catch {
+    // Without storage the next visit starts signed in; the session still ends at its idle limit.
+  }
+}
+
+/** Run at start-up: a sign-out made offline is completed with the server. */
+export async function finishPendingSignOut(): Promise<void> {
+  try {
+    if (localStorage.getItem(PENDING_SIGN_OUT) !== "1") return;
+    await api("/api/auth/logout", { method: "POST" });
+    localStorage.removeItem(PENDING_SIGN_OUT);
+  } catch (error) {
+    if (error instanceof ApiError && error.status !== 0) localStorage.removeItem(PENDING_SIGN_OUT);
+  }
+}
+
+/** FR-PW12: IndexedDB, Cache Storage and the queue, all gone. */
+export async function wipeDevice(): Promise<void> {
+  queue.forget();
+  await store.wipe().catch(() => undefined);
+  try {
+    localStorage.removeItem(OWNER);
+    sessionStorage.clear();
+  } catch {
+    // Nothing to clear.
+  }
+  if ("caches" in window) {
+    for (const name of await caches.keys()) await caches.delete(name);
+  }
 }
