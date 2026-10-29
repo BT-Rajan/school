@@ -231,3 +231,64 @@ def sample_schema(*, arabic: bool = True, teacher_section: bool = False) -> dict
             }
         )
     return {"sections": sections}
+
+
+def make_supervisor(cluster: Cluster, email: str, staff_id: str):
+    from app.models import Supervisor
+
+    user, _ = make_user(Role.SUPERVISOR, email, staff_id=staff_id)
+    with session_factory()() as db:
+        supervisor = Supervisor(user_id=user.id, cluster_id=cluster.id)
+        db.add(supervisor)
+        db.commit()
+        db.refresh(supervisor)
+        return supervisor, user
+
+
+def assign_direct(supervisor_id: int, school_id: int, start, end=None, by: int | None = None) -> None:
+    from app.models import SupervisorAssignment
+
+    with session_factory()() as db:
+        creator = by or db.execute(select(User.id)).scalars().first()
+        db.add(
+            SupervisorAssignment(
+                supervisor_id=supervisor_id, school_id=school_id, start_date=start, end_date=end, created_by=creator
+            )
+        )
+        db.commit()
+
+
+def publish_direct(
+    schema: dict, start, end, *, code: str = "MOE-SV-01", version: str = "2026.1", subject: str = "school"
+) -> int:
+    """A published form, created directly. Returns the form id."""
+    from app.models import FormVersion, MinistryReport, MinistryReportVersion
+
+    with session_factory()() as db:
+        author = db.execute(select(User.id)).scalars().first()
+        report = db.execute(select(MinistryReport).where(MinistryReport.report_code == code)).scalar_one_or_none()
+        if report is None:
+            report = MinistryReport(report_code=code, subject_type=subject, created_by=author)
+            db.add(report)
+            db.flush()
+        mrv = MinistryReportVersion(
+            ministry_report_id=report.id,
+            version_code=version,
+            title_en="School visit report",
+            title_ar="تقرير زيارة مدرسة",
+            created_by=author,
+        )
+        db.add(mrv)
+        db.flush()
+        form = FormVersion(
+            ministry_report_version_id=mrv.id,
+            schema=schema,
+            status="published",
+            start_date=start,
+            end_date=end,
+            built_by=author,
+            published_by=author,
+        )
+        db.add(form)
+        db.commit()
+        return form.id

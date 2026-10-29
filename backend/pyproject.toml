@@ -16,6 +16,8 @@ dependencies = [
     "pyotp>=2.9",
     "python-multipart>=0.0.9",
     "openpyxl>=3.1",
+    "fpdf2>=2.8",
+    "uharfbuzz>=0.40",
     "pikepdf>=9.0",
     "pillow>=11.0",
     "pillow-heif>=0.20",
@@ -35,7 +37,7 @@ build-backend = "setuptools.build_meta"
 include = ["app*"]
 
 [tool.setuptools.package-data]
-app = ["security/common_passwords.txt"]
+app = ["security/common_passwords.txt", "pdf/fonts/*.ttf", "pdf/fonts/OFL.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

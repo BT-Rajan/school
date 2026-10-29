@@ -12,6 +12,7 @@ from app.models.enums import (
     Role,
     UserStatus,
 )
+from app.models.evaluations import Evaluation, EvaluationAmendment, EvaluationSection
 from app.models.files import StoredFile
 from app.models.forms import FormReviewComment, FormVersion, MinistryReport, MinistryReportVersion
 from app.models.jobs import ImportBatch, Job
@@ -44,6 +45,9 @@ __all__ = [
     "CustomFieldDefinition",
     "District",
     "EntityStatus",
+    "Evaluation",
+    "EvaluationAmendment",
+    "EvaluationSection",
     "FormReviewComment",
     "FormVersion",
     "ImportBatch",
