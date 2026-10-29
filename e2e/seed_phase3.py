@@ -76,7 +76,7 @@ SCHEMA = {
 }
 
 
-def main() -> None:
+def seed3() -> dict:
     out = seed()
     with session_factory()() as db:
         today = clock.local_date("Asia/Kuwait")
@@ -156,7 +156,11 @@ def main() -> None:
             )
         )
         db.commit()
-    print(json.dumps(out))
+    return out
+
+
+def main() -> None:
+    print(json.dumps(seed3()))
 
 
 if __name__ == "__main__":

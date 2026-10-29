@@ -5,6 +5,7 @@ import { ApiError, uploadFile } from "../api";
 import { compressImage } from "../offline/compress";
 import { isOfflineError } from "../offline/hooks";
 import { useErrorText } from "../components";
+import Scanner from "../scan/Scanner";
 import type { UploadedFile } from "../types";
 
 export interface Picked {
@@ -19,13 +20,15 @@ export interface Picked {
 }
 
 /**
- * Pages of a scanned report (FR-D1, FR-D2): PDFs or images from the device, or photos from the
- * camera. Each is uploaded as soon as it is picked; the server joins them into one PDF in this order.
+ * Pages of a scanned report (FR-D1, FR-D2): PDFs or images from the device, photos from the
+ * camera, or a scan made with the camera on the device (FR-D3). Each is uploaded as soon as it
+ * is picked; the server joins them into one PDF in this order.
  */
 export default function PagePicker({ pages, onChange }: { pages: Picked[]; onChange: Dispatch<SetStateAction<Picked[]>> }) {
   const { t } = useTranslation();
   const errorText = useErrorText();
   const [busy, setBusy] = useState(0);
+  const [scanning, setScanning] = useState(false);
   const add = async (list: File[]) => {
     if (!list.length) return;
     const compressed = await Promise.all(list.map(compressImage));
@@ -82,6 +85,7 @@ export default function PagePicker({ pages, onChange }: { pages: Picked[]; onCha
         ))}
       </ol>
       <div className="page-actions">
+        <button type="button" onClick={() => setScanning(true)}>{t("scan.open")}</button>
         <label className="button-like">
           {t("reports.chooseFiles")}
           <input type="file" className="visually-hidden" multiple accept="application/pdf,image/jpeg,image/png,image/heic,image/heif,image/tiff,.heic,.heif"
@@ -94,6 +98,7 @@ export default function PagePicker({ pages, onChange }: { pages: Picked[]; onCha
         </label>
       </div>
       {busy > 0 && <p className="hint" role="status">{t("reports.uploadingCount", { count: busy })}</p>}
+      {scanning && <Scanner onDone={(file) => void add([file])} onClose={() => setScanning(false)} />}
     </fieldset>
   );
 }

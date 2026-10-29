@@ -161,5 +161,11 @@ export async function wipeDevice(): Promise<void> {
   }
   if ("caches" in window) {
     for (const name of await caches.keys()) await caches.delete(name);
+    // The worker puts back only the app's own files (public/sw.js).
+    try {
+      (await navigator.serviceWorker?.getRegistration())?.active?.postMessage({ type: "recache" });
+    } catch {
+      // No worker: nothing to put back.
+    }
   }
 }

@@ -3,7 +3,7 @@
 //   network first, and the last good copy of the app is used when there is none.
 // - Caches only the app's static files. API responses are never cached here: the app keeps the
 //   user's offline data itself, in IndexedDB, and sign-out wipes both (FR-PW12).
-const VERSION = "v3";
+const VERSION = "v4";
 const SHELL_CACHE = `sces-shell-${VERSION}`;
 const ASSET_CACHE = "sces-assets";
 const APP = "/index.html";
@@ -23,6 +23,14 @@ async function cacheBuiltAssets() {
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL)).then(cacheBuiltAssets));
   self.skipWaiting();
+});
+
+// Sign-out deletes every cache (FR-PW12). The app's own files hold nothing of the user's, so
+// they are put back, and the sign-in screen still opens without a connection.
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "recache") {
+    event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL)).then(cacheBuiltAssets).catch(() => undefined));
+  }
 });
 
 self.addEventListener("activate", (event) => {
