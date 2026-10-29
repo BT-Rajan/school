@@ -806,6 +806,7 @@ const en = {
     visit_date_in_future: "The visit date cannot be in the future.",
     visit_date_outside_assignment: "The visit date must be while you are assigned to this school.",
     window_overlap: "Another version of this report is open on some of these days.",
+    request_too_large: "This is too large to send. Use a smaller file or fewer pages.",
   },
 };
 

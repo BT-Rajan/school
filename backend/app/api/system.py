@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.audit import service as audit
 from app.auth.deps import Principal, admin_only
+from app.config import get_settings
 from app.db import get_db
 from app.district import get_district
 from app.errors import conflict, invalid
@@ -94,6 +95,9 @@ def update_settings(body: DistrictUpdate, _: Principal = Depends(admin_only), db
                 raise invalid("setting_invalid", {"key": key}) from exc
         if not 0 <= merged.get("mail_reserve_fraction", 0.4) < 1:
             raise invalid("setting_invalid", {"key": "mail_reserve_fraction"})
+        # Uploads must fit under the server's request ceiling (SCES_MAX_UPLOAD_REQUEST_MB).
+        if not 1 <= merged.get("upload_max_mb", 25) < get_settings().max_upload_request_mb:
+            raise invalid("setting_invalid", {"key": "upload_max_mb"})
         district.settings = merged
     after = {"name_en": district.name_en, "name_ar": district.name_ar, **(district.settings or {})}
     old, new = audit.changed_fields(before, after)

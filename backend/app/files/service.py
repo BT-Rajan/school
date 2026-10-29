@@ -49,12 +49,18 @@ _ACCESS: dict[str, AccessRule] = {
     "upload": lambda _db, principal, f: f.uploaded_by == principal.user.id,
 }
 _TRANSFORMS: dict[str, ServeTransform] = {}
+# Owners whose files are opened only through the owner's own link, which records the view.
+_OWNER_LINKS_ONLY: set[str] = set()
 
 
-def register_owner(owner_type: str, rule: AccessRule, transform: ServeTransform | None = None) -> None:
+def register_owner(
+    owner_type: str, rule: AccessRule, transform: ServeTransform | None = None, *, owner_links_only: bool = False
+) -> None:
     _ACCESS[owner_type] = rule
     if transform is not None:
         _TRANSFORMS[owner_type] = transform
+    if owner_links_only:
+        _OWNER_LINKS_ONLY.add(owner_type)
 
 
 def served_content(db: Session, principal: Principal, file: StoredFile) -> bytes:
@@ -243,8 +249,13 @@ class Link:
     expires_at: object
 
 
-def create_link(db: Session, principal: Principal, file_id: int, disposition: str = "attachment") -> Link:
+def create_link(
+    db: Session, principal: Principal, file_id: int, disposition: str = "attachment", *, via_owner: bool = False
+) -> Link:
     file = get_file(db, principal, file_id)
+    if file.owner_type in _OWNER_LINKS_ONLY and not via_owner:
+        # Scanned reports open through /api/documents/{id}/link, so the owner sees who opened them (FR-L9).
+        raise not_found()
     if file.scan_status == "pending":
         raise AppError(409, "file_not_ready")
     if file.scan_status != "clean":

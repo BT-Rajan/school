@@ -166,7 +166,7 @@ def _file_transform(db: Session, principal: Principal, file: StoredFile, content
     return watermark.apply(content, f"{user.name} · {user.staff_id or user.email} · {stamp}")
 
 
-files.register_owner("document", _file_rule, _file_transform)
+files.register_owner("document", _file_rule, _file_transform, owner_links_only=True)
 
 
 # Output ----------------------------------------------------------------------------
@@ -690,7 +690,7 @@ def link(db: Session, principal: Principal, document_id: int, body: LinkIn) -> f
     version = db.get(DocumentVersion, version_id)
     if version is None or version.document_id != d.id:
         raise not_found()
-    result = files.create_link(db, principal, version.stored_file_id, body.disposition)
+    result = files.create_link(db, principal, version.stored_file_id, body.disposition, via_owner=True)
     d = db.execute(select(Document).where(Document.id == d.id).with_for_update()).scalar_one()
     if not access.is_owner(db, principal, d):
         if principal.role == Role.DISTRICT_ADMIN and d.status == "submitted":

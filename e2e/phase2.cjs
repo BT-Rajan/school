@@ -3,10 +3,10 @@
 //
 //  1. The Form Author builds a ministry report form with a condition, previews it in Arabic at
 //     phone width, and sends it for review. The admin returns it with a comment; the author fixes
-//     it; the admin publishes it with D/MM/YYYY dates.
+//     it; the admin publishes it with D/MM/YYYY dates. A teacher report form follows.
 //  2. The Cluster Head assigns supervisors to schools on the board.
-//  3. Supervisor A fills in an evaluation, sees a required-answer error, submits, downloads the PDF
-//     and amends it with a reason.
+//  3. Supervisor A fills in a school evaluation, sees a required-answer error, submits, downloads
+//     the PDF and amends it with a reason; then a teacher evaluation, with both PDFs.
 //  4. Supervisor A uploads a scanned report from a photo and a PDF, in order, and sends it.
 //  5. Supervisor B, assigned to the same school, cannot see it, even by its address.
 //  6. The admin opens it (watermarked), returns it; A uploads a new version; the admin
@@ -43,8 +43,14 @@ async function visible(locator, message) {
 }
 // Selects the first option whose text matches, for labels that carry counts or codes.
 async function choose(select, pattern) {
-  const options = await select.locator("option").evaluateAll((els) => els.map((o) => ({ value: o.value, text: o.textContent })));
-  const found = options.find((o) => pattern.test(o.text));
+  // Options arrive with the screen's data, so wait up to 10 seconds for a match.
+  let options = [];
+  let found;
+  for (let i = 0; i < 40 && !found; i++) {
+    if (i) await new Promise((r) => setTimeout(r, 250));
+    options = await select.locator("option").evaluateAll((els) => els.map((o) => ({ value: o.value, text: o.textContent })));
+    found = options.find((o) => pattern.test(o.text));
+  }
   if (!found) throw new Error(`no option matching ${pattern} in ${JSON.stringify(options)}`);
   await select.selectOption(found.value);
 }
@@ -185,6 +191,43 @@ function kuwaitDate(offsetDays) {
   await visible(admin.getByText(`Open from ${kuwaitDate(0)} to ${kuwaitDate(20)}.`), "published window shown as D/MM/YYYY");
   await snap(admin, "published");
 
+  // A teacher report too: built, sent for review and published the same way.
+  await author.goto(`${base}/forms`);
+  await author.getByRole("button", { name: "New ministry report" }).click();
+  let dialog = author.getByRole("dialog");
+  await dialog.getByLabel("Ministry report ID").fill("MOE-TV-01");
+  await dialog.getByLabel("Report about").selectOption("teacher");
+  await dialog.getByRole("button", { name: "Create" }).click();
+  await dialog.waitFor({ state: "detached" });
+  await author.locator(".card").filter({ hasText: "MOE-TV-01" }).getByRole("button", { name: "New version" }).click();
+  dialog = author.getByRole("dialog");
+  await dialog.getByLabel("Version ID").fill("2026.1");
+  await dialog.getByLabel("Report title (English)").fill("Classroom observation");
+  await dialog.getByLabel("Report title (العربية)").fill("ملاحظة صفية");
+  await dialog.getByRole("button", { name: "Create" }).click();
+  await author.getByRole("button", { name: "Add section" }).click();
+  const tsection = author.locator(".builder-section").first();
+  await tsection.getByLabel("Key", { exact: true }).fill("lesson");
+  await tsection.getByLabel("Title (English)").fill("Lesson");
+  await tsection.getByLabel("Title (العربية)").fill("الدرس");
+  await tsection.getByLabel("Add a question").selectOption({ label: "Rating" });
+  q = tsection.locator(".builder-question").nth(0);
+  await q.getByLabel("Key", { exact: true }).fill("planning");
+  await q.getByLabel("Question (English)").fill("Lesson planning");
+  await q.getByLabel("Question (العربية)").fill("تخطيط الدرس");
+  await q.getByLabel("Required").check();
+  await author.getByRole("button", { name: "Save" }).first().click();
+  await author.getByText("Saved.").waitFor();
+  await author.getByRole("button", { name: "Send for review" }).click();
+  await author.getByText("Sent to the District Admins for review.").waitFor();
+  await admin.goto(author.url());
+  await admin.getByRole("button", { name: "Publish" }).click();
+  dialog = admin.getByRole("dialog");
+  await dialog.getByLabel("Opens on").fill(kuwaitDate(0));
+  await dialog.getByLabel("Closes on").fill(kuwaitDate(20));
+  await dialog.getByRole("button", { name: "Publish" }).click();
+  await admin.getByText("Published.").waitFor();
+
   // 2. Cluster Head assigns supervisors -----------------------------------------------------
   const head = await signIn("head");
   await nav(head, "Assignments");
@@ -204,8 +247,8 @@ function kuwaitDate(offsetDays) {
   const supA = await signIn("supa");
   await nav(supA, "Evaluations");
   await supA.getByRole("button", { name: "New evaluation" }).click();
-  let dialog = supA.getByRole("dialog");
-  await dialog.getByLabel("Form").selectOption({ index: 1 });
+  dialog = supA.getByRole("dialog");
+  await choose(dialog.getByLabel("Form"), /MOE-SV-01/);
   await choose(dialog.getByLabel("School"), /Al-Nahda/);
   await dialog.getByRole("button", { name: "Start" }).click();
   await supA.getByRole("heading", { name: /MOE-SV-01/ }).waitFor();
@@ -228,11 +271,31 @@ function kuwaitDate(offsetDays) {
   await supA.getByText("Amendment saved.").waitFor();
   await snap(supA, "evaluation-amended");
 
+  // A teacher evaluation: the form asks for a teacher at the chosen school.
+  await nav(supA, "Evaluations");
+  await supA.getByRole("button", { name: "New evaluation" }).click();
+  dialog = supA.getByRole("dialog");
+  await choose(dialog.getByLabel("Form"), /MOE-TV-01/);
+  await choose(dialog.getByLabel("School"), /Al-Nahda/);
+  await choose(dialog.getByLabel("Teacher"), /Fatima Al-Sabah/);
+  await dialog.getByRole("button", { name: "Start" }).click();
+  await supA.getByRole("heading", { name: /MOE-TV-01/ }).waitFor();
+  await visible(supA.locator(".facts").getByText("Fatima Al-Sabah"), "teacher evaluation names the teacher");
+  await supA.getByRole("radio", { name: "3" }).click();
+  await supA.getByRole("button", { name: "Submit" }).click();
+  await supA.getByText("Submitted.").waitFor();
+  for (const [button, file] of [["PDF in English", "teacher-en.pdf"], ["PDF in Arabic", "teacher-ar.pdf"]]) {
+    const [download] = await Promise.all([supA.waitForEvent("download"), supA.getByRole("button", { name: button }).click()]);
+    await download.saveAs(path.join(out, file));
+    check(fs.readFileSync(path.join(out, file)).subarray(0, 5).toString() === "%PDF-", `teacher evaluation ${button}`);
+  }
+  await snap(supA, "teacher-evaluation");
+
   // 4. Supervisor A uploads a scanned report ---------------------------------------------------
   await nav(supA, "Scanned reports");
   await supA.getByRole("button", { name: "Upload a report" }).click();
   dialog = supA.getByRole("dialog");
-  await dialog.getByLabel("Ministry report and version").selectOption({ index: 1 });
+  await choose(dialog.getByLabel("Ministry report and version"), /MOE-SV-01/);
   await choose(dialog.getByLabel("School"), /Al-Nahda/);
   await dialog.locator('input[type=file][multiple]').setInputFiles([path.join(fixtures, "page1.png"), path.join(fixtures, "page2.pdf")]);
   await dialog.getByText("Pages: 1").first().waitFor();

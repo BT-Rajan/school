@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # Fails open when the service cannot be reached; the bundled list still applies.
     breached_password_api: bool = False
 
+    # Largest request bodies accepted (section 15): uploads, and everything else.
+    # The upload limit must stay above the district's upload_max_mb setting.
+    max_upload_request_mb: int = 60
+    max_json_request_kb: int = 2048
+
     # General API rate limits per minute (section 15).
     rate_limit_user_per_minute: int = 300
     rate_limit_ip_per_minute: int = 1000

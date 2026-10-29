@@ -23,6 +23,7 @@ from app.api import (
 )
 from app.auth.deps import SESSION_COOKIE
 from app.auth.rate_limit import api_limiter
+from app.body_limit import BodyLimitMiddleware
 from app.config import get_settings
 from app.errors import AppError, app_error_handler, stale_data_handler, validation_error_handler
 from app.logging_setup import configure_logging
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(AppError, app_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(StaleDataError, stale_data_handler)
+    app.add_middleware(BodyLimitMiddleware)
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):

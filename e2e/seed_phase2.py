@@ -1,7 +1,7 @@
 """Seed a fresh development database for the Phase 2 browser test (e2e/phase2.cjs).
 
-Creates the district, one cluster with two schools, a District Admin, a Form Author,
-a Cluster Head and two supervisors, all with authenticator apps, and prints their
+Creates the district, one cluster with two schools and a teacher, a District Admin, a
+Form Author, a Cluster Head and two supervisors, all with authenticator apps, and prints their
 emails and TOTP secrets as JSON. Never run it against production: it refuses to.
 
 Usage, from backend/ with the app's environment set and migrations applied:
@@ -12,10 +12,11 @@ import json
 
 import pyotp
 
+from app import clock
 from app.audit import service as audit
 from app.config import get_settings
 from app.db import session_factory
-from app.models import Cluster, District, MfaMethod, Role, School, Supervisor, User, UserStatus
+from app.models import Cluster, District, MfaMethod, ReferenceValue, Role, School, Supervisor, Teacher, User, UserStatus
 from app.models.district import DEFAULT_SETTINGS
 from app.security import crypto, passwords
 from app.structure.common import fold_search
@@ -66,8 +67,9 @@ def main() -> None:
         cluster = Cluster(code="C-01", name="Salmiya Cluster", cluster_head_id=head.id)
         db.add(cluster)
         db.flush()
+        schools = []
         for code, name in (("SCH-1", "Al-Nahda Primary"), ("SCH-2", "مدرسة الفردوس")):
-            db.add(
+            schools.append(
                 School(
                     cluster_id=cluster.id,
                     code=code,
@@ -79,6 +81,31 @@ def main() -> None:
                     contact_phone="+96500000000",
                 )
             )
+        db.add_all(schools)
+        designation = ReferenceValue(list_name="designation", code="T1", name_en="Teacher", name_ar="معلم")
+        db.add(designation)
+        db.flush()
+        # A teacher at the first school, for teacher evaluations. Teachers sign in from Phase 3.
+        teacher = User(
+            role=Role.TEACHER,
+            email="fatima@e2e.example.org",
+            name="Fatima Al-Sabah",
+            name_search=fold_search("Fatima Al-Sabah"),
+            staff_id="T-100",
+            status=UserStatus.ACTIVE,
+            mfa_method=MfaMethod.EMAIL,
+        )
+        db.add(teacher)
+        db.flush()
+        db.add(
+            Teacher(
+                user_id=teacher.id,
+                school_id=schools[0].id,
+                designation_id=designation.id,
+                experience_years=6,
+                experience_as_of=clock.now().date(),
+            )
+        )
         for u in (sup_a, sup_b):
             db.add(Supervisor(user_id=u.id, cluster_id=cluster.id))
         db.commit()

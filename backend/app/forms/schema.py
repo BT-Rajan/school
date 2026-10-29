@@ -27,9 +27,18 @@ ColumnType = Literal["short_text", "number", "date", "yes_no", "single_choice"]
 CHOICE_TYPES = ("single_choice", "multi_choice")
 
 
+# Bounds on a form's size, so a definition (and the answers it allows) stays reasonable.
+MAX_TEXT = 2000
+MAX_OPTIONS = 200
+MAX_COLUMNS = 30
+MAX_QUESTIONS = 300
+MAX_SECTIONS = 50
+DEFAULT_MAX_ROWS = 200
+
+
 class Text(BaseModel):
-    en: str = ""
-    ar: str = ""
+    en: str = Field(default="", max_length=MAX_TEXT)
+    ar: str = Field(default="", max_length=MAX_TEXT)
 
 
 class Option(BaseModel):
@@ -50,7 +59,7 @@ class Column(BaseModel):
     type: ColumnType
     label: Text
     required: bool = False
-    options: list[Option] = Field(default_factory=list)
+    options: list[Option] = Field(default_factory=list, max_length=MAX_OPTIONS)
 
 
 class Question(BaseModel):
@@ -65,8 +74,8 @@ class Question(BaseModel):
     max_length: int | None = Field(default=None, ge=1, le=10000)
     max_rows: int | None = Field(default=None, ge=1, le=200)
     max_files: int | None = Field(default=None, ge=1, le=20)
-    options: list[Option] = Field(default_factory=list)
-    columns: list[Column] = Field(default_factory=list)
+    options: list[Option] = Field(default_factory=list, max_length=MAX_OPTIONS)
+    columns: list[Column] = Field(default_factory=list, max_length=MAX_COLUMNS)
     visible_if: Condition | None = None
     # FR-F8: weight for the district's scoring formula, applied in Phase 5.
     score_weight: float | None = None
@@ -77,11 +86,11 @@ class Section(BaseModel):
     title: Text
     description: Text | None = None
     respondent: Literal["supervisor", "teacher"]
-    questions: list[Question] = Field(default_factory=list)
+    questions: list[Question] = Field(default_factory=list, max_length=MAX_QUESTIONS)
 
 
 class FormSchema(BaseModel):
-    sections: list[Section] = Field(default_factory=list)
+    sections: list[Section] = Field(default_factory=list, max_length=MAX_SECTIONS)
 
 
 def _text_problems(text: Text | None, where: str, *, required: bool = True) -> list[dict[str, str]]:
@@ -267,7 +276,7 @@ def validate_answers(
             if not isinstance(value, list) or any(not isinstance(r, dict) for r in value):
                 problems.append({"where": q.key, "code": "not_a_table"})
                 continue
-            if q.max_rows and len(value) > q.max_rows:
+            if len(value) > (q.max_rows or DEFAULT_MAX_ROWS):
                 problems.append({"where": q.key, "code": "too_many_rows"})
             rows = []
             for i, row in enumerate(value):

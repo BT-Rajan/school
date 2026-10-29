@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, current_principal
@@ -33,7 +33,7 @@ def create(body: CreateIn, principal: Principal = Depends(current_principal), db
 
 @router.get("/documents")
 def list_documents(
-    q: str | None = None,
+    q: str | None = Query(default=None, max_length=100),
     status: str | None = None,
     supervisor_id: int | None = None,
     cluster_id: int | None = None,

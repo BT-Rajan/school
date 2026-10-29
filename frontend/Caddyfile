@@ -4,6 +4,10 @@
 	encode gzip
 
 	handle /api/* {
+		# Matches SCES_MAX_UPLOAD_REQUEST_MB; the API also refuses oversized bodies itself.
+		request_body {
+			max_size 60MB
+		}
 		reverse_proxy api:8000
 	}
 
