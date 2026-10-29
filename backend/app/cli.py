@@ -110,6 +110,42 @@ def app_grants(tables, database: str, user: str) -> list[str]:
     return lines
 
 
+def provision_database(args) -> None:
+    """Migrate, then create the restricted application user and its grants.
+
+    Runs with the privileged SCES_MIGRATION_DATABASE_URL. The application user's
+    password comes from SCES_APP_DB_PASSWORD. Safe to run on every deploy.
+    """
+    import os
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import create_engine, make_url, text
+
+    from app.db import Base
+
+    admin_url = os.environ.get("SCES_MIGRATION_DATABASE_URL")
+    password = os.environ.get("SCES_APP_DB_PASSWORD")
+    if not admin_url or not password:
+        sys.exit("Set SCES_MIGRATION_DATABASE_URL and SCES_APP_DB_PASSWORD")
+    backend = Path(__file__).resolve().parent.parent
+    config = Config(str(backend / "alembic.ini"))
+    config.set_main_option("script_location", str(backend / "migrations"))
+    command.upgrade(config, "head")
+
+    database = make_url(admin_url).database
+    user = f"'{args.user}'@'{args.host}'"
+    engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+    with engine.connect() as conn:
+        conn.execute(text(f"CREATE USER IF NOT EXISTS {user} IDENTIFIED BY :pw"), {"pw": password})
+        conn.execute(text(f"ALTER USER {user} IDENTIFIED BY :pw"), {"pw": password})
+        for statement in app_grants(Base.metadata.sorted_tables, database, user):
+            conn.execute(text(statement))
+    engine.dispose()
+    print(f"Database {database} migrated; {user} provisioned.")
+
+
 def worker(_args) -> None:
     from app.worker import run_forever
 
@@ -155,6 +191,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--user", default="sces_app")
     p.add_argument("--host", default="%")
     p.set_defaults(func=grants_sql)
+
+    p = commands.add_parser("provision-database", help="Migrate and provision the application database user")
+    p.add_argument("--user", default="sces_app")
+    p.add_argument("--host", default="%")
+    p.set_defaults(func=provision_database)
 
     args = parser.parse_args(argv)
     args.func(args)

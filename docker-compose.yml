@@ -1,0 +1,87 @@
+# One deployment per district, on the district's own server (section 2).
+# Copy .env.example to .env, fill it in, then: docker compose up -d
+name: sces
+
+x-backend-env: &backend-env
+  SCES_ENVIRONMENT: production
+  SCES_SECRET_KEY: ${SCES_SECRET_KEY:?set in .env}
+  SCES_ENCRYPTION_KEY: ${SCES_ENCRYPTION_KEY:?set in .env}
+  SCES_DATABASE_URL: mysql+pymysql://sces_app:${SCES_APP_DB_PASSWORD}@db:3306/sces?charset=utf8mb4
+  SCES_PUBLIC_BASE_URL: https://${SCES_DOMAIN}
+  SCES_COOKIE_SECURE: "true"
+  SCES_MAIL_PROVIDER: ${SCES_MAIL_PROVIDER:-gmail}
+  SCES_MAIL_SENDER: ${SCES_MAIL_SENDER:-}
+  SCES_MAIL_SENDER_NAME: ${SCES_MAIL_SENDER_NAME:-School Cluster Evaluation System}
+  SCES_GMAIL_CLIENT_ID: ${SCES_GMAIL_CLIENT_ID:-}
+  SCES_GMAIL_CLIENT_SECRET: ${SCES_GMAIL_CLIENT_SECRET:-}
+  SCES_GMAIL_REFRESH_TOKEN: ${SCES_GMAIL_REFRESH_TOKEN:-}
+  SCES_SMTP_HOST: ${SCES_SMTP_HOST:-}
+  SCES_SMTP_PORT: ${SCES_SMTP_PORT:-587}
+  SCES_SMTP_USERNAME: ${SCES_SMTP_USERNAME:-}
+  SCES_SMTP_PASSWORD: ${SCES_SMTP_PASSWORD:-}
+
+services:
+  db:
+    image: mysql:8.4
+    restart: unless-stopped
+    command: ["--character-set-server=utf8mb4", "--collation-server=utf8mb4_unicode_ci"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${SCES_DB_ROOT_PASSWORD:?set in .env}
+      MYSQL_DATABASE: sces
+    volumes:
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${SCES_DB_ROOT_PASSWORD}"]
+      interval: 5s
+      retries: 30
+
+  # Runs migrations and provisions the restricted app user (audit table insert-only), then exits.
+  migrate:
+    build: ./backend
+    command: ["python", "-m", "app.cli", "provision-database"]
+    environment:
+      <<: *backend-env
+      SCES_MIGRATION_DATABASE_URL: mysql+pymysql://root:${SCES_DB_ROOT_PASSWORD}@db:3306/sces?charset=utf8mb4
+      SCES_APP_DB_PASSWORD: ${SCES_APP_DB_PASSWORD:?set in .env}
+    depends_on:
+      db:
+        condition: service_healthy
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+
+  worker:
+    build: ./backend
+    restart: unless-stopped
+    command: ["python", "-m", "app.cli", "worker"]
+    environment: *backend-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  web:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      SCES_DOMAIN: ${SCES_DOMAIN:?set in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - api
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

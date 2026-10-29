@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s --health-retries=30
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      TEST_MYSQL_ROOT_URL: mysql+pymysql://root:root@127.0.0.1:3306
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install -e ".[dev]" ruff
+      - name: Lint
+        run: |
+          ruff check .
+          ruff format --check .
+      - name: Tests (real MySQL, real migrations)
+        run: pytest
+      - name: Models match migrations
+        env:
+          SCES_SECRET_KEY: ci-secret-key-ci-secret-key-ci-secret-key
+          SCES_ENCRYPTION_KEY: k0Z2oPq8n3wJ4cXy7Vb1Lm9Rt5Hs6Gf2Ad8Ek3Uw4Yz
+          SCES_MIGRATION_DATABASE_URL: mysql+pymysql://root:root@127.0.0.1:3306/sces_test?charset=utf8mb4
+        run: alembic check
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --omit=dev
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t sces-api ./backend
+      - run: docker build -t sces-web ./frontend

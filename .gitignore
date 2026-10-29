@@ -14,3 +14,4 @@ dist/
 *.local
 /data/
 backups/
+e2e-output/

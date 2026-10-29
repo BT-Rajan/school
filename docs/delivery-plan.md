@@ -102,6 +102,47 @@ with the real district structure loaded.
 **Release:** staging on the district's servers. Admins load and check
 their data.
 
+**Status (Oct 29, 2026): in progress**
+
+Built and tested (68 backend tests on MySQL 8, frontend unit tests, and a
+browser smoke test in `e2e/`):
+
+- Authentication with emailed codes and Google Authenticator, recovery codes,
+  lockout, rate limits, sessions, CSRF protection, invitations, password reset,
+  admin reset, break-glass CLI, two-admin rule.
+- Hash-chained audit log, nightly verification with admin alerts, and an
+  insert-only audit table for the application's database user.
+- Mail queue with priorities, the reserved budget for sign-in codes,
+  invitation spreading, daily digests, and Gmail API, SMTP or console
+  providers.
+- Clusters, schools, contact teachers, teachers with the district's field
+  list, supervisors, reference lists, custom fields, scoped access (404 out of
+  scope), optimistic locking, CSV and Excel import with preview and idempotent
+  commit, and export.
+- Web app in English and Arabic for all of the above, with right-to-left
+  layout, D/MM/YYYY dates, and a language switch on every screen and dialog
+  that keeps unsaved input.
+- Docker Compose stack (MySQL, migrations, API, worker, Caddy with automatic
+  TLS), CI, deployment guide, and backup and restore scripts.
+
+Still to do in Phase 1:
+
+- File service (FR-FS1 to FR-FS4): MinIO, ClamAV, content sniffing, PDF
+  sanitization, EXIF removal, per-file encryption, and session-bound signed
+  URLs. Needed before scanned reports in Phase 2. File backups come with it.
+- PWA shell: web app manifest and an online-only service worker.
+- Run the backup and restore scripts once against a real deployment.
+- Boot the Compose stack end to end. Image builds run in CI; they could not
+  be pulled in the development environment.
+- Send real mail through the district's Gmail account. The Gmail API
+  provider is tested only against a mocked Google server.
+
+Schema note: tables for forms, the ministry catalog and documents are added
+by Phase 2 migrations. Adding tables needs no rework of existing ones.
+
+Defaults used until the district answers: Western digits in Arabic (Q7) and
+Google Authenticator required for District Admins and Form Authors (Q11).
+
 ---
 
 ## Phase 2: Forms, supervision, and scanned reports
