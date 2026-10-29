@@ -23,6 +23,8 @@ class ObjectStore(Protocol):
 
     def keys(self) -> Iterator[str]: ...
 
+    def delete(self, key: str) -> None: ...
+
 
 def new_key() -> str:
     return secrets.token_hex(32)
@@ -55,6 +57,9 @@ class LocalDiskStore:
 
     def get(self, key: str) -> bytes:
         return self._path(key).read_bytes()
+
+    def delete(self, key: str) -> None:
+        self._path(key).unlink(missing_ok=True)
 
     def keys(self) -> Iterator[str]:
         for path in self.root.glob("??/??/*"):

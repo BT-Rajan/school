@@ -4,10 +4,10 @@ Teacher sections arrive in Phase 3; until then an evaluation holds only the
 form's supervisor sections, and submission needs only those.
 """
 
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -67,6 +67,13 @@ class Location(BaseModel):
 class SubmitIn(BaseModel):
     version: int
     location: Location | None = None
+    # When the supervisor pressed Submit, possibly offline (FR-PW11).
+    device_time: datetime | None = None
+
+    @field_validator("device_time")
+    @classmethod
+    def _naive_utc(cls, value: datetime | None) -> datetime | None:
+        return value.astimezone(UTC).replace(tzinfo=None) if value and value.tzinfo else value
 
 
 class AmendIn(SaveIn):
@@ -383,18 +390,32 @@ def save(db: Session, principal: Principal, evaluation_id: int, body: SaveIn) ->
     return e
 
 
-def _form_open_for_submission(db: Session, e: Evaluation) -> None:
-    """FR-PB4: drafts started in the window can be submitted until the end date."""
+def _form_open_for_submission(db: Session, e: Evaluation, *, queued: bool = False) -> None:
+    """FR-PB4: drafts started in the window can be submitted until the end date.
+
+    FR-PW13: a submission made offline and sent after the form closed is still accepted
+    if its visit date falls inside the form's window. Otherwise the draft stays a draft.
+    """
     form = db.get(FormVersion, e.form_version_id)
-    if form.closed_at is not None or (form.end_date is not None and _today(db) > form.end_date):
-        raise AppError(409, "form_closed")
+    closed = form.closed_at is not None or (form.end_date is not None and _today(db) > form.end_date)
+    if not closed:
+        return
+    if queued and e.visit_date is not None and form.start_date and form.end_date:
+        last_day = (
+            min(form.end_date, clock.local_date(get_district(db).time_zone, form.closed_at))
+            if form.closed_at
+            else form.end_date
+        )
+        if form.start_date <= e.visit_date <= last_day:
+            return
+    raise AppError(409, "form_closed")
 
 
 def submit(db: Session, principal: Principal, evaluation_id: int, body: SubmitIn) -> Evaluation:
     e = _locked_own(db, principal, evaluation_id, body.version)
     if e.status != "draft":
         raise AppError(409, "evaluation_locked")
-    _form_open_for_submission(db, e)
+    _form_open_for_submission(db, e, queued=body.device_time is not None)
     requests.check_ready(db, e)
     if e.visit_date is None:
         raise invalid("answers_invalid", [{"where": "visit_date", "code": "required"}])
@@ -419,6 +440,16 @@ def submit(db: Session, principal: Principal, evaluation_id: int, body: SubmitIn
         cluster_id=school.cluster_id,
         after={"visit_date": e.visit_date, "location_captured": body.location is not None},
     )
+    if body.device_time and abs(body.device_time - clock.now()) > timedelta(hours=24):
+        # FR-PW11: both times are kept; a device clock far off is flagged for review.
+        audit.record(
+            db,
+            "evaluation.clock_skew",
+            entity_type="evaluation",
+            entity_id=e.id,
+            severity="warning",
+            after={"device_time": body.device_time, "received": clock.now()},
+        )
     _notify_reviewers(db, e, "evaluation_submitted")
     db.commit()
     return e

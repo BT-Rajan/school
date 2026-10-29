@@ -12,7 +12,7 @@ import re
 from app.config import get_settings
 from app.errors import AppError
 
-_UPLOAD_PATHS = re.compile(r"^/api/(files|imports/[a-z_]+/preview)$")
+_UPLOAD_PATHS = re.compile(r"^/api/(files|imports/[a-z_]+/preview|uploads/\d+/chunks)$")
 
 
 def _limit(path: str) -> int:

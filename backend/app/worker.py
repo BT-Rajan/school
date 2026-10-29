@@ -16,6 +16,7 @@ from app.db import session_factory
 from app.district import get_district, local_time_utc
 from app.documents import service as documents
 from app.errors import AppError
+from app.files import resumable
 from app.files import service as files
 from app.mail import queue as mail
 from app.models import Job
@@ -64,6 +65,7 @@ def housekeeping(db: Session) -> None:
     _run_daily(db, "request_reminders", "07:00", requests.remind)
     _run_daily(db, "digest", district.setting("digest_time"), mail.build_digests)
     _run_daily(db, "prune_rate_limits", "03:00", lambda s: rate_limit.prune(s, timedelta(days=2)))
+    _run_daily(db, "prune_uploads", "03:00", resumable.prune)
 
 
 def run_forever() -> None:

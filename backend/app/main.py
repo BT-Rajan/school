@@ -22,6 +22,7 @@ from app.api import (
     requests,
     structure,
     system,
+    uploads,
     users,
 )
 from app.auth.deps import SESSION_COOKIE
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
         requests,
         realtime,
         push,
+        uploads,
     ):
         app.include_router(module.router)
     return app
