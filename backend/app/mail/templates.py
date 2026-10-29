@@ -195,6 +195,58 @@ NOTICES: dict[str, dict[str, str]] = {
         "en": "Evaluation {report_code} for {school} was amended by {supervisor}: {reason}",
         "ar": "عدّل {supervisor} التقييم {report_code} لمدرسة {school}: {reason}",
     },
+    "request_assigned": {
+        "en": "New request {report_code} for {school}, due {due}.",
+        "ar": "طلب جديد {report_code} لمدرسة {school}، موعده {due}.",
+    },
+    "request_submitted": {
+        "en": "{teacher} submitted {report_code} for {school}.",
+        "ar": "قدّم {teacher} الطلب {report_code} لمدرسة {school}.",
+    },
+    "request_returned": {
+        "en": "Your answers to {report_code} for {school} were returned: {comment}",
+        "ar": "أُعيدت إجاباتك على {report_code} لمدرسة {school}: {comment}",
+    },
+    "request_due_soon": {
+        "en": "Reminder: {report_code} for {school} is due on {due}.",
+        "ar": "تذكير: موعد {report_code} لمدرسة {school} هو {due}.",
+    },
+    "request_due_today": {
+        "en": "Reminder: {report_code} for {school} is due today.",
+        "ar": "تذكير: موعد {report_code} لمدرسة {school} اليوم.",
+    },
+    "request_overdue": {
+        "en": "{report_code} for {school} was due on {due}. Please submit it.",
+        "ar": "كان موعد {report_code} لمدرسة {school} في {due}. يرجى تقديمه.",
+    },
+    "request_overdue_requester": {
+        "en": "{teacher} has not submitted {report_code} for {school}, due {due}.",
+        "ar": "لم يقدّم {teacher} الطلب {report_code} لمدرسة {school}، وكان موعده {due}.",
+    },
+    "request_due_changed": {
+        "en": "{report_code} for {school} is now due on {due}.",
+        "ar": "أصبح موعد {report_code} لمدرسة {school} في {due}.",
+    },
+    "request_moved": {
+        "en": "{report_code} for {school} now goes to the new contact teacher, {teacher}.",
+        "ar": "أصبح الطلب {report_code} لمدرسة {school} عند معلم الاتصال الجديد {teacher}.",
+    },
+    "request_move_confirm": {
+        "en": "{school} has a new contact teacher, {new_teacher}. Confirm who finishes {report_code}.",
+        "ar": "لمدرسة {school} معلم اتصال جديد هو {new_teacher}. أكّد من يكمل {report_code}.",
+    },
+    "request_moved_away": {
+        "en": "{report_code} for {school} was handed to the new contact teacher.",
+        "ar": "سُلّم الطلب {report_code} لمدرسة {school} إلى معلم الاتصال الجديد.",
+    },
+    "request_waived": {
+        "en": "{report_code} for {school} no longer needs an answer: {reason}",
+        "ar": "لم يعد الطلب {report_code} لمدرسة {school} يحتاج إلى إجابة: {reason}",
+    },
+    "request_cancelled": {
+        "en": "{report_code} for {school} was cancelled.",
+        "ar": "أُلغي الطلب {report_code} لمدرسة {school}.",
+    },
     "evaluations_transferred": {
         "en": "{count} draft evaluations for {school} ({school_code}) were transferred to you.",
         "ar": "نُقلت إليك {count} من مسودات التقييم لمدرسة {school} ({school_code}).",

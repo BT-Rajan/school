@@ -17,6 +17,7 @@ from app.api import (
     imports,
     notifications,
     reference,
+    requests,
     structure,
     system,
     users,
@@ -96,6 +97,7 @@ def create_app() -> FastAPI:
         forms,
         evaluations,
         documents,
+        requests,
     ):
         app.include_router(module.router)
     return app

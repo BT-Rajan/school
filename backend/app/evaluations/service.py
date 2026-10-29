@@ -36,6 +36,7 @@ from app.models import (
     User,
 )
 from app.notifications import service as notify
+from app.requests import service as requests
 from app.structure.common import deny, managed_cluster_ids
 from app.structure.service import paginate
 
@@ -204,7 +205,9 @@ def evaluation_out(db: Session, e: Evaluation, *, full: bool = True) -> dict[str
                 "submitted_at": s.submitted_at,
             }
             for s in _sections(db, e)
-        ]
+        ] + requests.evaluation_sections(db, e)
+        r = requests.evaluation_request(db, e)
+        out["request"] = requests.summary(db, r) if r else None
     return out
 
 
@@ -347,6 +350,7 @@ def start(db: Session, principal: Principal, body: StartIn) -> Evaluation:
                     evaluation_id=e.id, section_key=s.key, respondent="supervisor", respondent_user_id=principal.user.id
                 )
             )
+    requests.create_for_evaluation(db, principal, e, form)
     school = db.get(School, e.school_id)
     audit.record(
         db,
@@ -391,6 +395,7 @@ def submit(db: Session, principal: Principal, evaluation_id: int, body: SubmitIn
     if e.status != "draft":
         raise AppError(409, "evaluation_locked")
     _form_open_for_submission(db, e)
+    requests.check_ready(db, e)
     if e.visit_date is None:
         raise invalid("answers_invalid", [{"where": "visit_date", "code": "required"}])
     _check_visit_date(db, e, e.visit_date)
@@ -461,6 +466,7 @@ def cancel(db: Session, principal: Principal, evaluation_id: int, body: CancelIn
     if e.status != "draft":
         raise AppError(409, "evaluation_locked")
     e.status, e.cancelled_at, e.cancel_reason = "cancelled", clock.now(), body.reason
+    requests.close_for_evaluation(db, e, body.reason)
     db.flush()
     audit.record(db, "evaluation.cancelled", entity_type="evaluation", entity_id=e.id, after={"reason": body.reason})
     db.commit()

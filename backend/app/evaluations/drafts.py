@@ -10,6 +10,7 @@ from app import clock
 from app.audit import service as audit
 from app.models import Evaluation, EvaluationSection, School, Supervisor
 from app.notifications import service as notify
+from app.requests import service as requests
 
 
 def open_draft_ids(db: Session, supervisor_id: int, school_id: int) -> list[int]:
@@ -30,6 +31,7 @@ def transfer(db: Session, draft_ids: list[int], to_supervisor_id: int) -> None:
     for e in moved:
         before = e.supervisor_id
         e.supervisor_id = target.id
+        requests.on_supervisor_changed(db, e, target.user_id)
         db.execute(
             update(EvaluationSection)
             .where(EvaluationSection.evaluation_id == e.id, EvaluationSection.respondent == "supervisor")
@@ -56,6 +58,7 @@ def transfer(db: Session, draft_ids: list[int], to_supervisor_id: int) -> None:
 def cancel(db: Session, draft_ids: list[int], reason: str) -> None:
     for e in db.execute(select(Evaluation).where(Evaluation.id.in_(draft_ids)).with_for_update()).scalars():
         e.status, e.cancelled_at, e.cancel_reason = "cancelled", clock.now(), reason
+        requests.close_for_evaluation(db, e, reason)
         audit.record(
             db,
             "evaluation.cancelled",

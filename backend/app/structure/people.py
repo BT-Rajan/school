@@ -13,6 +13,7 @@ from app.auth import service as auth
 from app.auth.deps import Principal
 from app.district import get_district
 from app.errors import AppError, invalid, not_found
+from app.mail import queue as mail
 from app.models import (
     Cluster,
     EntityStatus,
@@ -706,3 +707,71 @@ def update_staff(db: Session, user_id: int, body: PersonUpdate) -> User:
         audit.record(db, "user.updated", entity_type="user", entity_id=user.id, before=old, after=new)
     db.commit()
     return user
+
+
+# Teacher onboarding at scale (Phase 3) --------------------------------------------------------
+
+
+def _teacher_users_in_scope(db: Session, principal: Principal, cluster_id: int | None):
+    allowed = managed_cluster_ids(db, principal)
+    if cluster_id is not None:
+        ensure_cluster_in_scope(db, principal, cluster_id, entity="cluster", entity_id=cluster_id)
+    query = (
+        select(User)
+        .join(Teacher, Teacher.user_id == User.id)
+        .join(School, School.id == Teacher.school_id)
+        .where(Teacher.status == EntityStatus.ACTIVE)
+    )
+    if cluster_id is not None:
+        query = query.where(School.cluster_id == cluster_id)
+    elif allowed is not None:
+        query = query.where(School.cluster_id.in_(allowed))
+    return list(db.execute(query.order_by(User.id)).scalars())
+
+
+def _waiting_invitation(db: Session, user_id: int) -> Invitation | None:
+    return db.execute(
+        select(Invitation).where(
+            Invitation.user_id == user_id,
+            Invitation.used_at.is_(None),
+            Invitation.revoked_at.is_(None),
+            Invitation.expires_at > clock.now(),
+        )
+    ).scalar_one_or_none()
+
+
+def onboarding_status(db: Session, principal: Principal, cluster_id: int | None = None) -> dict[str, Any]:
+    """How many teachers have joined, have a live invitation, or need one."""
+    counts = {"active": 0, "invited": 0, "needs_invitation": 0}
+    for user in _teacher_users_in_scope(db, principal, cluster_id):
+        if user.status == UserStatus.ACTIVE:
+            counts["active"] += 1
+        elif user.status == UserStatus.INVITED:
+            counts["invited" if _waiting_invitation(db, user.id) else "needs_invitation"] += 1
+    return counts
+
+
+def invite_waiting_teachers(db: Session, principal: Principal, cluster_id: int | None = None) -> dict[str, Any]:
+    """Invite every teacher who has not joined and has no live invitation, within the
+    daily invitation cap, so sign-in codes keep their reserved mail budget (FR-N8)."""
+    users = [
+        u
+        for u in _teacher_users_in_scope(db, principal, cluster_id)
+        if u.status == UserStatus.INVITED and _waiting_invitation(db, u.id) is None
+    ]
+    times = mail.invitation_send_times(db, len(users))
+    district = get_district(db)
+    per_day: dict[str, int] = {}
+    for user, at in zip(users, times, strict=True):
+        auth.create_invitation(db, user, principal.user.id, send_at=at)
+        day = clock.local_date(district.time_zone, at).isoformat()
+        per_day[day] = per_day.get(day, 0) + 1
+    audit.record(
+        db,
+        "teachers.invited",
+        entity_type="cluster",
+        entity_id=cluster_id,
+        after={"count": len(users), "by_day": per_day},
+    )
+    db.commit()
+    return {"queued": len(users), "by_day": [{"date": d, "count": n} for d, n in sorted(per_day.items())]}

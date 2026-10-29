@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth.deps import Principal, admin_only, current_principal, require_roles, structure_managers
@@ -146,6 +147,24 @@ def list_teachers(
 @router.post("/teachers", status_code=201)
 def create_teacher(body: TeacherIn, principal: Principal = Depends(structure_managers), db: Session = Depends(get_db)):
     return people.teacher_out(db, people.create_teacher(db, principal, body))
+
+
+class OnboardingIn(BaseModel):
+    cluster_id: int | None = None
+
+
+@router.get("/teachers/onboarding")
+def teacher_onboarding(
+    cluster_id: int | None = None, principal: Principal = Depends(structure_managers), db: Session = Depends(get_db)
+):
+    return people.onboarding_status(db, principal, cluster_id)
+
+
+@router.post("/teachers/invitations")
+def invite_teachers(
+    body: OnboardingIn, principal: Principal = Depends(structure_managers), db: Session = Depends(get_db)
+):
+    return people.invite_waiting_teachers(db, principal, body.cluster_id)
 
 
 @router.get("/teachers/{teacher_id}")

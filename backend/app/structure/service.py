@@ -392,7 +392,10 @@ def set_contact_teacher(db: Session, principal: Principal, school_id: int, teach
         before={"teacher_id": previous.teacher_id if previous else None},
         after={"teacher_id": teacher.id},
     )
-    # Moving the previous contact's open school-level requests arrives with requests in Phase 3.
+    # FR-S6: open requests addressed to the school's contact follow the new one.
+    from app.requests import service as requests
+
+    requests.on_contact_changed(db, school.id, teacher.id)
     db.commit()
     return school
 

@@ -262,6 +262,7 @@ def catalog(db: Session, principal: Principal) -> list[dict[str, Any]]:
                     "id": report.id,
                     "report_code": report.report_code,
                     "subject_type": report.subject_type,
+                    "standalone_allowed": report.standalone_allowed,
                     "versions": shown,
                 }
             )

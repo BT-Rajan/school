@@ -19,6 +19,7 @@ from app.errors import AppError
 from app.files import service as files
 from app.mail import queue as mail
 from app.models import Job
+from app.requests import service as requests
 
 log = logging.getLogger(__name__)
 
@@ -59,6 +60,7 @@ def housekeeping(db: Session) -> None:
     _run_daily(db, "audit_verify", district.setting("audit_verify_time"), audit.run_verification)
     # Before the digest, so the reminder joins that day's email.
     _run_daily(db, "reports_overdue", "07:00", documents.remind_overdue)
+    _run_daily(db, "request_reminders", "07:00", requests.remind)
     _run_daily(db, "digest", district.setting("digest_time"), mail.build_digests)
     _run_daily(db, "prune_rate_limits", "03:00", lambda s: rate_limit.prune(s, timedelta(days=2)))
 

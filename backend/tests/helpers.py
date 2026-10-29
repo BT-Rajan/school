@@ -6,6 +6,7 @@ import pyotp
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
+from app import clock
 from app.db import session_factory
 from app.mail import queue as mail
 from app.mail.providers import get_provider
@@ -292,3 +293,29 @@ def publish_direct(
         db.add(form)
         db.commit()
         return form.id
+
+
+def make_teacher(school: School, email: str, staff_id: str, name: str | None = None):
+    """An active teacher with an authenticator app. Returns the teacher, the user and the TOTP secret."""
+    from app.models import Teacher
+
+    user, secret = make_user(Role.TEACHER, email, staff_id=staff_id, name=name, mfa=MfaMethod.TOTP)
+    with session_factory()() as db:
+        designation = db.execute(
+            select(ReferenceValue).where(ReferenceValue.list_name == "designation", ReferenceValue.code == "T1")
+        ).scalar_one_or_none()
+        if designation is None:
+            designation = ReferenceValue(list_name="designation", code="T1", name_en="Teacher", name_ar="معلم")
+            db.add(designation)
+            db.flush()
+        teacher = Teacher(
+            user_id=user.id,
+            school_id=school.id,
+            designation_id=designation.id,
+            experience_years=5,
+            experience_as_of=clock.now().date(),
+        )
+        db.add(teacher)
+        db.commit()
+        db.refresh(teacher)
+        return teacher, user, secret

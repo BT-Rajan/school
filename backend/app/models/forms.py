@@ -16,6 +16,8 @@ class MinistryReport(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     report_code: Mapped[str] = mapped_column(String(64), unique=True)
     subject_type: Mapped[str] = mapped_column(String(16))  # school or teacher
+    # Approved by a District Admin for standalone teacher requests (FR-R1).
+    standalone_allowed: Mapped[bool] = mapped_column(default=False)
     created_by: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(default=clock.now)
 

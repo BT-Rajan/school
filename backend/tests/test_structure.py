@@ -266,6 +266,10 @@ MATRIX = [
     ("GET", "/api/forms", {Role.DISTRICT_ADMIN, Role.FORM_AUTHOR, Role.CLUSTER_HEAD, Role.SUPERVISOR}),
     ("GET", "/api/evaluations", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD, Role.SUPERVISOR}),
     ("GET", "/api/documents/dashboard", {Role.SUPERVISOR}),
+    # Phase 3: everyone may list requests; each sees only their own share (tests/test_requests.py).
+    ("GET", "/api/requests", set(Role)),
+    ("GET", "/api/teachers/onboarding", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD}),
+    ("POST", "/api/teachers/invitations", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD}),
 ]
 
 

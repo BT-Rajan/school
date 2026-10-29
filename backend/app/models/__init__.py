@@ -19,6 +19,7 @@ from app.models.forms import FormReviewComment, FormVersion, MinistryReport, Min
 from app.models.jobs import ImportBatch, Job
 from app.models.mail import MailDailyUsage, MailMessage
 from app.models.notifications import Notification, NotificationPreference
+from app.models.requests import TeacherRequest
 from app.models.structure import (
     Cluster,
     CustomFieldDefinition,
@@ -77,6 +78,7 @@ __all__ = [
     "SupervisorAssignment",
     "SupervisorClusterMove",
     "Teacher",
+    "TeacherRequest",
     "TeacherClass",
     "TeacherQualification",
     "TeacherSubject",
