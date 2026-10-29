@@ -841,3 +841,21 @@ def linked_documents(db: Session, principal: Principal, evaluation_id: int) -> l
     """FR-E11: documents linked to an evaluation that this viewer may see."""
     rows = db.execute(access.visible_query(db, principal).where(Document.evaluation_id == evaluation_id)).scalars()
     return [document_out(db, principal, d) for d in rows]
+
+
+def remind_overdue(db: Session) -> int:
+    """Daily: tell admins how many submitted reports still wait for acknowledgement (FR-N2)."""
+    days = int(get_district(db).setting("acknowledge_overdue_days"))
+    count = db.execute(
+        select(func.count())
+        .select_from(Document)
+        .where(
+            Document.status.in_(UNDER_REVIEW),
+            Document.deleted_at.is_(None),
+            Document.submitted_at < clock.now() - timedelta(days=days),
+        )
+    ).scalar_one()
+    if count:
+        notify.notify_role(db, Role.DISTRICT_ADMIN, "reports_overdue", {"count": count, "days": days})
+    db.commit()
+    return count

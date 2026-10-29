@@ -35,6 +35,7 @@ from app.models import (
     Teacher,
     User,
 )
+from app.notifications import service as notify
 from app.structure.common import deny, managed_cluster_ids
 from app.structure.service import paginate
 
@@ -208,6 +209,25 @@ def evaluation_out(db: Session, e: Evaluation, *, full: bool = True) -> dict[str
 
 
 # Rules ---------------------------------------------------------------------------------
+
+
+def _notify_reviewers(db: Session, e: Evaluation, type_: str, **extra: Any) -> None:
+    """FR-N2, FR-N7: admins get every evaluation; the Cluster Head gets their cluster's."""
+    mrv, report = _form_parts(db, db.get(FormVersion, e.form_version_id))
+    school = db.get(School, e.school_id)
+    supervisor = db.get(Supervisor, e.supervisor_id)
+    params = {
+        "report_code": report.report_code,
+        "version_code": mrv.version_code,
+        "school": school.name,
+        "supervisor": db.get(User, supervisor.user_id).name,
+        "evaluation_id": e.id,
+        **extra,
+    }
+    notify.notify_role(db, Role.DISTRICT_ADMIN, type_, params)
+    head_id = db.get(Cluster, school.cluster_id).cluster_head_id
+    if head_id:
+        notify.notify(db, head_id, type_, params)
 
 
 def _check_visit_date(db: Session, e: Evaluation, day: date | None) -> None:
@@ -394,6 +414,7 @@ def submit(db: Session, principal: Principal, evaluation_id: int, body: SubmitIn
         cluster_id=school.cluster_id,
         after={"visit_date": e.visit_date, "location_captured": body.location is not None},
     )
+    _notify_reviewers(db, e, "evaluation_submitted")
     db.commit()
     return e
 
@@ -429,6 +450,7 @@ def amend(db: Session, principal: Principal, evaluation_id: int, body: AmendIn) 
         cluster_id=school.cluster_id,
         after={"reason": body.reason, "sections": sorted(body.sections)},
     )
+    _notify_reviewers(db, e, "evaluation_amended", reason=body.reason)
     db.commit()
     return e
 

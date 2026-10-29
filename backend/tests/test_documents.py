@@ -427,3 +427,17 @@ def test_notifications_follow_the_review(w):
         types = [(n.user_id, n.type) for n in db.execute(select(Notification)).scalars()]
     assert (w["user_a"].id, "report_returned") in types
     assert sum(1 for _, t in types if t == "report_submitted") == 2  # both admins
+
+
+def test_admins_are_reminded_of_overdue_reports(w):
+    from app.documents import service as documents
+    from app.models import Notification
+
+    submitted(w)
+    with session_factory()() as db:
+        assert documents.remind_overdue(db) == 0
+    clock.freeze(datetime(2026, 11, 18, 6, 0))  # eight days later
+    with session_factory()() as db:
+        assert documents.remind_overdue(db) == 1
+        reminders = db.execute(select(Notification).where(Notification.type == "reports_overdue")).scalars().all()
+    assert len(reminders) == 2 and reminders[0].payload == {"count": 1, "days": 7}

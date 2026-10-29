@@ -183,6 +183,22 @@ NOTICES: dict[str, dict[str, str]] = {
         "en": "Report {report_code} for {school} was shared with you.",
         "ar": "تمت مشاركة التقرير {report_code} لمدرسة {school} معك.",
     },
+    "reports_overdue": {
+        "en": "{count} submitted reports have waited more than {days} days for acknowledgement.",
+        "ar": "{count} من التقارير المقدمة تنتظر الاعتماد منذ أكثر من {days} أيام.",
+    },
+    "evaluation_submitted": {
+        "en": "Evaluation {report_code} for {school} was submitted by {supervisor}.",
+        "ar": "قدّم {supervisor} التقييم {report_code} لمدرسة {school}.",
+    },
+    "evaluation_amended": {
+        "en": "Evaluation {report_code} for {school} was amended by {supervisor}: {reason}",
+        "ar": "عدّل {supervisor} التقييم {report_code} لمدرسة {school}: {reason}",
+    },
+    "evaluations_transferred": {
+        "en": "{count} draft evaluations for {school} ({school_code}) were transferred to you.",
+        "ar": "نُقلت إليك {count} من مسودات التقييم لمدرسة {school} ({school_code}).",
+    },
 }
 
 

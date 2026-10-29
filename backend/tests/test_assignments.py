@@ -221,6 +221,10 @@ def test_notification_center(world, new_client, outbox):
     inbox = sup.get("/api/notifications").json()
     assert inbox["unread"] == 1 and inbox["items"][0]["type"] == "assignment_started"
     assert inbox["items"][0]["payload"]["school_code"] == "S1"
+    # Text comes in both languages with the date as D/MM/YYYY.
+    d = today()
+    assert f"(S1) from {d.day}/{d.month:02d}/{d.year}." in inbox["items"][0]["text"]["en"]
+    assert "S1" in inbox["items"][0]["text"]["ar"]
     sup.post(f"/api/notifications/{inbox['items'][0]['id']}/read")
     assert sup.get("/api/notifications").json()["unread"] == 0
     # The email copy waits for the daily digest and shows the date as D/MM/YYYY.
@@ -228,7 +232,6 @@ def test_notification_center(world, new_client, outbox):
         queue.build_digests(db)
     deliver_mail()
     digest = next(m for m in outbox if m.to == "a@example.org" and m.subject == "Your daily summary")
-    d = today()
     assert f"{d.day}/{d.month:02d}/{d.year}" in digest.text
     # Turning a type off stops new notices on that channel.
     assert (

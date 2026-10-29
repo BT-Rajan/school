@@ -8,7 +8,7 @@ from sqlalchemy import select
 from app import clock
 from app.db import session_factory
 from app.files import service as files
-from app.models import AuditLog, Evaluation, EvaluationAmendment, MfaMethod, Role
+from app.models import AuditLog, Evaluation, EvaluationAmendment, MfaMethod, Notification, Role
 
 from .helpers import (
     assign_direct,
@@ -248,3 +248,43 @@ def test_amendment_rejected_for_drafts(world):
     assert r.json()["error"]["code"] == "evaluation_not_submitted"
     with session_factory()() as db:
         assert not db.execute(select(EvaluationAmendment)).first()
+
+
+def notices(type_: str) -> list[tuple[int, dict]]:
+    with session_factory()() as db:
+        rows = db.execute(select(Notification).where(Notification.type == type_)).scalars()
+        return [(n.user_id, n.payload) for n in rows]
+
+
+def test_reviewers_hear_about_submissions_and_amendments(world):
+    a = world["a"]
+    e = save(a, start(a, world, visit_date=str(TODAY)).json(), sections={"visit": GOOD}).json()
+    e = submit(a, e).json()
+    submitted = notices("evaluation_submitted")
+    # The admin and this cluster's head; not the other cluster's head.
+    recipients = {user_id for user_id, _ in submitted}
+    assert world["head_user"].id in recipients and world["other_user"].id not in recipients
+    assert len(recipients) == 2
+    assert submitted[0][1]["school"] == world["school"].name
+    a.post(
+        f"/api/evaluations/{e['id']}/amend",
+        json={"version": e["version"], "reason": "Miscounted", "sections": {"visit": GOOD}},
+    )
+    assert {p["reason"] for _, p in notices("evaluation_amended")} == {"Miscounted"}
+
+
+def test_transferred_drafts_are_announced(world):
+    start(world["a"], world)
+    head = world["head"]
+    assignment = head.get("/api/assignments/history", params={"supervisor_id": world["sup_a"].id}).json()[0]
+    head.post(
+        f"/api/assignments/{assignment['id']}/end",
+        json={
+            "version": assignment["version"],
+            "reason": "Moved",
+            "drafts": "transfer",
+            "transfer_to_supervisor_id": world["sup_b"].id,
+        },
+    )
+    [(user_id, payload)] = notices("evaluations_transferred")
+    assert user_id == world["sup_b"].user_id and payload["count"] == 1

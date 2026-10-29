@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app import clock
 from app.errors import invalid, not_found
 from app.mail import queue as mail
-from app.mail.templates import NOTICES
+from app.mail.templates import NOTICES, notice_text
 from app.models import MailPriority, Notification, NotificationPreference, Role, School, Supervisor, User, UserStatus
 
 CHANNELS = ("in_app", "email")
@@ -64,7 +64,15 @@ def assignment_changed(db: Session, supervisor_id: int, type_: str, school: Scho
 
 
 def notification_out(n: Notification) -> dict[str, Any]:
-    return {"id": n.id, "type": n.type, "payload": n.payload, "read": n.read_at is not None, "created_at": n.created_at}
+    return {
+        "id": n.id,
+        "type": n.type,
+        "payload": n.payload,
+        # The same wording as the email, so the screen can switch language without a reload.
+        "text": {locale: notice_text(n.type, locale, n.payload or {}) for locale in ("en", "ar")},
+        "read": n.read_at is not None,
+        "created_at": n.created_at,
+    }
 
 
 def list_for(db: Session, user_id: int, unread_only: bool = False, limit: int = 50) -> dict[str, Any]:
