@@ -771,6 +771,7 @@ const ar: Translation = {
       cancel: "تم الإلغاء.",
     },
   },
+  live: { live: "التحديثات المباشرة تعمل", connecting: "جارٍ إعادة الاتصال…", offline: "غير متصل" },
   fieldErrors: {
     missing: "مطلوب",
     string_too_short: "قصير جدًا",

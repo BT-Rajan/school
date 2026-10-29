@@ -1,7 +1,9 @@
 # SCES_DOMAIN is the public name of the server, for example sces.example.org.
 # Caddy obtains and renews a publicly trusted certificate for it.
 {$SCES_DOMAIN} {
-	encode gzip
+	# Live updates stream; compression would hold their events back.
+	@compressible not path /api/realtime/*
+	encode @compressible gzip
 
 	handle /api/* {
 		# Matches SCES_MAX_UPLOAD_REQUEST_MB; the API also refuses oversized bodies itself.

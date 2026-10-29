@@ -770,6 +770,7 @@ const en = {
       cancel: "Cancelled.",
     },
   },
+  live: { live: "Live updates on", connecting: "Reconnecting…", offline: "Offline" },
   fieldErrors: {
     missing: "Required",
     string_too_short: "Too short",

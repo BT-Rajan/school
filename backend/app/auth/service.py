@@ -266,6 +266,21 @@ def find_session(db: Session, token: str) -> tuple[UserSession, User] | None:
     return session, user
 
 
+def session_still_valid(db: Session, session_id: int) -> bool:
+    """For open live connections: still signed in, without counting as activity.
+
+    A connected but untouched screen must not keep a session alive past its idle limit.
+    """
+    session = db.get(UserSession, session_id)
+    if session is None or session.revoked_at is not None:
+        return False
+    idle = timedelta(hours=int(get_district(db).setting("session_idle_hours")))
+    if session.last_seen_at + idle < clock.now():
+        return False
+    user = db.get(User, session.user_id)
+    return user is not None and user.status == UserStatus.ACTIVE
+
+
 # Login ----------------------------------------------------------------------
 
 

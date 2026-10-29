@@ -16,6 +16,7 @@ from app.errors import invalid, not_found
 from app.mail import queue as mail
 from app.mail.templates import NOTICES, notice_text
 from app.models import MailPriority, Notification, NotificationPreference, Role, School, Supervisor, User, UserStatus
+from app.realtime import events
 
 CHANNELS = ("in_app", "email")
 
@@ -40,6 +41,7 @@ def notify(db: Session, user_id: int, type_: str, payload: dict[str, Any]) -> No
     payload = {k: (v.isoformat() if isinstance(v, date) else v) for k, v in payload.items()}
     if _enabled(db, user.id, type_, "in_app"):
         db.add(Notification(user_id=user.id, type=type_, payload=payload, created_at=clock.now()))
+        events.emit(db, "notification", None, user_id=user.id)
     if _enabled(db, user.id, type_, "email"):
         mail.send_to_user(
             db, user, "notice", {"type": type_, "params": payload}, MailPriority.INFORMATIONAL, digest=True

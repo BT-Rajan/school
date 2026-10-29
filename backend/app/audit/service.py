@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app import clock, context
 from app.db import session_factory
 from app.models import AuditChainHead, AuditLog, AuditVerification
+from app.realtime import events
 
 GENESIS_HASH = "0" * 64
 HEAD_ID = 1
@@ -115,6 +116,8 @@ def record(
     head.last_seq = row.seq
     head.last_hash = row.hash
     db.flush()
+    # Committed changes reach open screens (FR-RT1).
+    events.from_audit(db, action, entity_type, entity_id)
     return row
 
 

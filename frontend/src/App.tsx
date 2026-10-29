@@ -28,6 +28,7 @@ import Settings from "./pages/Settings";
 import Staff from "./pages/Staff";
 import Supervisors from "./pages/Supervisors";
 import Teachers from "./pages/Teachers";
+import { useRealtime } from "./realtime";
 import { districtName, useSession } from "./session";
 import type { Role } from "./types";
 
@@ -64,6 +65,7 @@ function Shell({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const { me, district, signOut } = useSession();
   const inbox = useInbox(!!me);
+  const live = useRealtime(me?.id ?? null);
   const unread = inbox.data?.unread ?? 0;
   return (
     <>
@@ -78,6 +80,9 @@ function Shell({ children }: { children: ReactNode }) {
         <LanguageSwitch />
         {me && (
           <>
+            <span className={`live live-${live}`} role="status" title={t(`live.${live}`)}>
+              <span className="visually-hidden">{t(`live.${live}`)}</span>
+            </span>
             <NavLink to="/notifications" className="bell" aria-label={t("notifications.unread", { count: unread })}>
               🔔{unread > 0 && <span className="bell-count">{unread > 99 ? "99+" : unread}</span>}
             </NavLink>
