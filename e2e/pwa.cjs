@@ -4,7 +4,8 @@ const { chromium } = require("playwright");
 
 (async () => {
   const base = process.argv[2];
-  const browser = await chromium.launch();
+  // Service workers need a trusted certificate, so a self-signed one is accepted at the browser level too.
+  const browser = await chromium.launch(process.env.E2E_IGNORE_HTTPS === "1" ? { args: ["--ignore-certificate-errors"] } : {});
   const context = await browser.newContext({ ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS === "1" });
   const page = await context.newPage();
   page.on("console", (m) => /Content Security Policy|Refused to/.test(m.text()) && console.log("CSP VIOLATION", m.text()));
@@ -35,6 +36,9 @@ const { chromium } = require("playwright");
   const other = await fresh.newPage();
   await fresh.setOffline(true);
   await other.goto(`${base}/`).catch(() => undefined);
-  console.log("never-visited browser offline: no app, as expected:", (await other.content()).length < 2000);
+  await other.waitForLoadState().catch(() => undefined);
+  // Chromium's own error page may still be loading, so ask only whether the app is there.
+  const appThere = await other.getByRole("heading", { name: "Sign in" }).count().catch(() => 0);
+  console.log("never-visited browser offline: no app, as expected:", appThere === 0);
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });

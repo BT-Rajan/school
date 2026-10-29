@@ -408,6 +408,92 @@ connectivity, and screens update live.
 
 **Release:** Pilot 2, the whole district.
 
+**Status (Oct 29, 2026): built and verified in Chromium; waiting on the district for phones and the pilot**
+
+Built:
+
+- Live updates over a WebSocket at `/api/realtime/ws`, falling back to
+  Server-Sent Events. An event is sent once its change commits, and only to
+  users the API would let open that record. Events say only what changed;
+  screens refetch through the API. The app reconnects with backoff, refetches
+  everything after a gap, and shows the connection state in the header.
+- Web Push for each signed-in browser, ended at sign-out, as a third notice
+  channel with its own choices per notice type. Pushes carry only the
+  notice's one-line text.
+- Offline:
+  - Screens' data is kept on the device as it loads, and the app opens
+    without a connection.
+  - Evaluations can be started and filled in offline. Changes wait in an
+    ordered outbox and are replayed with client keys, so nothing is created
+    twice.
+  - A version conflict stops and lets the user keep their answers or take
+    the server's.
+  - The outbox holds at most 20 files or 200 MB, and warns when the browser
+    may clear storage.
+  - The device time is sent with each item, and skew over 24 hours is
+    flagged.
+  - FR-PW13 decides queued submissions for forms that have since closed.
+  - Sign-out wipes IndexedDB, Cache Storage and the outbox, and puts back
+    only the app's own files.
+- Resumable uploads: 1 MB pieces, encrypted on arrival, resumed from the
+  server's count after a drop.
+- Camera scanning on the phone:
+  - Pages are captured one after another, with up to 50 pages.
+  - The page's edges are found automatically, and the user can drag the
+    corners.
+  - Each page is cropped and straightened, and can be turned and shown
+    clearer or in black and white.
+  - Pages can be reordered and deleted.
+  - All pages are joined into one compressed PDF on the phone.
+  - A scan in progress survives the app closing.
+  - Without camera access in the browser, the phone's own camera app is used.
+
+Choices made where the requirements leave room (to confirm with the district):
+
+- Session cookies now outlive a closed browser, so work queued offline can be
+  sent when the app is reopened. The server still ends a session after 12
+  hours idle (FR-A6), and on revocation.
+- Scanned pages are about 200 dots per inch at A4 size, as JPEG inside the
+  PDF. Ten pages make about 2 to 4 MB.
+- Edge detection looks for a light sheet against a darker background. On a
+  white desk it falls back to the whole photo, and the user drags the
+  corners.
+
+How it was verified:
+
+- 183 backend tests against MySQL 8. They cover scoped event delivery and
+  rollback, the session re-check on open connections, push endpoints, gone
+  subscriptions, resumable uploads (gaps, replays, size limits), device-time
+  skew and FR-PW13.
+- 20 web app unit tests. They cover the outbox's order, coalescing, conflict
+  and replay, the device limits, edge detection, straightening, black and
+  white under a shadow, and the PDF's structure. A PDF made in the browser
+  passes the server's pikepdf sanitizer.
+- Browser test (`e2e/phase4.cjs`, seeded by `e2e/seed_phase4.py`) on a
+  production build with the service worker. It ran on the preview server and
+  on the full Compose stack (Caddy with HTTPS, ClamAV), using Chromium's fake
+  camera with a tilted page on a desk:
+  - The acknowledgement reached the supervisor's open report in 222 ms, over
+    the WebSocket.
+  - The second supervisor's open screen received no events.
+  - Offline, an evaluation draft and an 11-page scan were made: one page was
+    deleted, two were swapped, and one was turned and made black and white.
+  - After a restart, still offline, everything was waiting.
+  - Back online, one evaluation and one 10-page report arrived. Sending
+    again created nothing.
+  - After sign-out, the device store and the caches held no user data, and
+    the app opened offline to the sign-in screen.
+- The Phase 3 browser test and the PWA check passed again on the Compose
+  stack.
+
+Waiting on the district:
+
+- The exit criterion's real phones: the browser test run by hand on the
+  district's Android phones and iPhones (Safari), and the app installed to
+  the home screen. Chromium's fake camera cannot show how real lighting and
+  desks affect edge detection.
+- VAPID keys generated on the server (`generate-keys`) to turn Web Push on.
+
 ---
 
 ## Phase 5: Scoring, reporting, administration, and go-live
