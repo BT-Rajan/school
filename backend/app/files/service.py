@@ -42,14 +42,25 @@ MAX_SCAN_ATTEMPTS = 10
 
 # Access rules by owner type. Each feature that owns files registers its rule.
 AccessRule = Callable[[Session, Principal, StoredFile], bool]
+# Optional change to content as it is served, such as a viewer watermark (FR-D27).
+ServeTransform = Callable[[Session, Principal, StoredFile, bytes], bytes]
 _ACCESS: dict[str, AccessRule] = {
     # A fresh upload is visible only to the person who uploaded it.
     "upload": lambda _db, principal, f: f.uploaded_by == principal.user.id,
 }
+_TRANSFORMS: dict[str, ServeTransform] = {}
 
 
-def register_owner(owner_type: str, rule: AccessRule) -> None:
+def register_owner(owner_type: str, rule: AccessRule, transform: ServeTransform | None = None) -> None:
     _ACCESS[owner_type] = rule
+    if transform is not None:
+        _TRANSFORMS[owner_type] = transform
+
+
+def served_content(db: Session, principal: Principal, file: StoredFile) -> bytes:
+    content = read_content(file)
+    transform = _TRANSFORMS.get(file.owner_type)
+    return transform(db, principal, file, content) if transform else content
 
 
 def _context(file: StoredFile) -> str:
@@ -94,14 +105,35 @@ def upload(db: Session, principal: Principal, filename: str, content: bytes) -> 
         raise AppError(409, "storage_quota_exceeded", {"quota_mb": district.setting("storage_quota_mb_per_user")})
 
     base = filename.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].rsplit(".", 1)[0][:200] or "file"
+    file = store(
+        db, principal.user.id, f"{base}{cleaned.extension}", cleaned.content, cleaned.mime_type, cleaned.page_count
+    )
+    db.commit()
+    return file
+
+
+def store(
+    db: Session,
+    uploaded_by: int,
+    name: str,
+    content: bytes,
+    mime_type: str,
+    page_count: int | None,
+    *,
+    owner_type: str = "upload",
+    owner_id: int | None = None,
+) -> StoredFile:
+    """Encrypt content with a new key, write it, record it, and queue its virus scan. The caller commits."""
     file = StoredFile(
         storage_key=new_key(),
-        uploaded_by=principal.user.id,
-        original_name=f"{base}{cleaned.extension}",
-        mime_type=cleaned.mime_type,
-        size=len(cleaned.content),
-        sha256=hashlib.sha256(cleaned.content).hexdigest(),
-        page_count=cleaned.page_count,
+        owner_type=owner_type,
+        owner_id=owner_id,
+        uploaded_by=uploaded_by,
+        original_name=name[:255],
+        mime_type=mime_type,
+        size=len(content),
+        sha256=hashlib.sha256(content).hexdigest(),
+        page_count=page_count,
         scan_status="pending",
         scan_after=clock.now(),
         created_at=clock.now(),
@@ -109,7 +141,7 @@ def upload(db: Session, principal: Principal, filename: str, content: bytes) -> 
     )
     data_key = crypto.new_data_key()
     file.wrapped_key = crypto.wrap_key(data_key, context=_context(file))
-    get_store().put(file.storage_key, crypto.seal(cleaned.content, data_key, context=_context(file)))
+    get_store().put(file.storage_key, crypto.seal(content, data_key, context=_context(file)))
     db.add(file)
     db.flush()
     audit.record(
@@ -118,8 +150,8 @@ def upload(db: Session, principal: Principal, filename: str, content: bytes) -> 
         entity_type="file",
         entity_id=file.id,
         after={"sha256": file.sha256, "size": file.size, "mime_type": file.mime_type, "pages": file.page_count},
+        actor_id=uploaded_by,
     )
-    db.commit()
     return file
 
 

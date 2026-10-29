@@ -1,7 +1,8 @@
 import pytest
 from sqlalchemy import select
 
-from app.models import AuditLog, MfaMethod, Role, User
+from app.db import session_factory
+from app.models import AuditLog, MfaMethod, Role, Supervisor, User
 
 from .helpers import (
     deliver_mail,
@@ -260,6 +261,11 @@ MATRIX = [
     ("GET", "/api/admin/locked-accounts", {Role.DISTRICT_ADMIN}),
     ("POST", "/api/custom-fields", {Role.DISTRICT_ADMIN}),
     ("GET", "/api/exports/schools", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD}),
+    # Phase 2
+    ("GET", "/api/catalog", {Role.DISTRICT_ADMIN, Role.FORM_AUTHOR, Role.CLUSTER_HEAD, Role.SUPERVISOR}),
+    ("GET", "/api/forms", {Role.DISTRICT_ADMIN, Role.FORM_AUTHOR, Role.CLUSTER_HEAD, Role.SUPERVISOR}),
+    ("GET", "/api/evaluations", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD, Role.SUPERVISOR}),
+    ("GET", "/api/documents/dashboard", {Role.SUPERVISOR}),
 ]
 
 
@@ -272,6 +278,13 @@ def test_permission_matrix(role, new_client, outbox):
         f"{role.value}@example.org",
         mfa=MfaMethod.TOTP if role in (Role.DISTRICT_ADMIN, Role.FORM_AUTHOR) else MfaMethod.EMAIL,
     )
+    if role == Role.SUPERVISOR:
+        # A real supervisor always has a profile in a cluster.
+        cluster = make_cluster("CM")
+        with session_factory()() as db:
+            user = db.execute(select(User).where(User.email == "supervisor@example.org")).scalar_one()
+            db.add(Supervisor(user_id=user.id, cluster_id=cluster.id))
+            db.commit()
     for method, path, allowed in MATRIX:
         response = client.request(method, path, json={})
         if role in allowed:

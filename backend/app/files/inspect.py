@@ -121,7 +121,7 @@ def sanitize_pdf(content: bytes, max_pages: int) -> Clean:
                     del names[key]
         out = io.BytesIO()
         # Only objects still reachable from the document are written.
-        pdf.save(out)
+        pdf.save(out, deterministic_id=True)
     return Clean(out.getvalue(), "application/pdf", ".pdf", pages)
 
 

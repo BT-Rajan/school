@@ -2,6 +2,7 @@ from app.models.assignments import SupervisorAssignment
 from app.models.audit import AuditChainHead, AuditLog, AuditVerification
 from app.models.auth import AuthChallenge, Invitation, RateLimitEvent, RecoveryCode, UserSession
 from app.models.district import District
+from app.models.documents import Document, DocumentForward, DocumentVersion
 from app.models.enums import (
     BudgetClass,
     ChallengePurpose,
@@ -44,6 +45,9 @@ __all__ = [
     "Cluster",
     "CustomFieldDefinition",
     "District",
+    "Document",
+    "DocumentForward",
+    "DocumentVersion",
     "EntityStatus",
     "Evaluation",
     "EvaluationAmendment",

@@ -51,7 +51,7 @@ def create_link(
 @router.get("/download/{token}")
 def download(token: str, principal: Principal = Depends(current_principal), db: Session = Depends(get_db)):
     file, disposition = service.resolve_link(db, principal, token)
-    content = service.read_content(file)
+    content = service.served_content(db, principal, file)
     extension = file.original_name.rsplit(".", 1)[-1]
     headers = {
         # An ASCII fallback name, plus the real (possibly Arabic) name in UTF-8.

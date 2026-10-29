@@ -47,6 +47,8 @@ EDITABLE_SETTINGS = {
     "upload_max_pages": int,
     "upload_rate_per_hour": int,
     "storage_quota_mb_per_user": int,
+    "document_retention_years": int,
+    "acknowledge_overdue_days": int,
 }
 
 

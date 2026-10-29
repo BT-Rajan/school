@@ -96,12 +96,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_evaluation_sections_respondent_user_id"), table_name="evaluation_sections")
     op.drop_table("evaluation_sections")
-    op.drop_index(op.f("ix_evaluation_amendments_evaluation_id"), table_name="evaluation_amendments")
     op.drop_table("evaluation_amendments")
-    op.drop_index(op.f("ix_evaluations_teacher_id"), table_name="evaluations")
-    op.drop_index("ix_evaluations_supervisor_status", table_name="evaluations")
-    op.drop_index("ix_evaluations_school_status", table_name="evaluations")
-    op.drop_index(op.f("ix_evaluations_form_version_id"), table_name="evaluations")
     op.drop_table("evaluations")

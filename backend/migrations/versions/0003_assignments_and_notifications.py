@@ -77,11 +77,6 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_supervisor_assignments_supervisor_id"), table_name="supervisor_assignments")
-    op.drop_index("ix_supervisor_assignments_school_dates", table_name="supervisor_assignments")
     op.drop_table("supervisor_assignments")
-    op.drop_index("ix_notifications_user_read", table_name="notifications")
-    op.drop_index(op.f("ix_notifications_created_at"), table_name="notifications")
     op.drop_table("notifications")
-    op.drop_index(op.f("ix_notification_preferences_user_id"), table_name="notification_preferences")
     op.drop_table("notification_preferences")

@@ -46,7 +46,4 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_stored_files_uploaded_by"), table_name="stored_files")
-    op.drop_index(op.f("ix_stored_files_sha256"), table_name="stored_files")
-    op.drop_index(op.f("ix_stored_files_scan_status"), table_name="stored_files")
     op.drop_table("stored_files")

@@ -110,10 +110,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_form_review_comments_form_version_id"), table_name="form_review_comments")
     op.drop_table("form_review_comments")
-    op.drop_index(op.f("ix_form_versions_status"), table_name="form_versions")
     op.drop_table("form_versions")
-    op.drop_index(op.f("ix_ministry_report_versions_ministry_report_id"), table_name="ministry_report_versions")
     op.drop_table("ministry_report_versions")
     op.drop_table("ministry_reports")

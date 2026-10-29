@@ -22,6 +22,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "upload_max_pages": 50,
     "upload_rate_per_hour": 60,
     "storage_quota_mb_per_user": 2048,
+    "document_retention_years": 7,
+    "acknowledge_overdue_days": 7,
 }
 
 

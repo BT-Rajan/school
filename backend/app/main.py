@@ -10,6 +10,7 @@ from app import context
 from app.api import (
     assignments,
     auth,
+    documents,
     evaluations,
     files,
     forms,
@@ -92,6 +93,7 @@ def create_app() -> FastAPI:
         notifications,
         forms,
         evaluations,
+        documents,
     ):
         app.include_router(module.router)
     return app
