@@ -7,7 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm.exc import StaleDataError
 
 from app import context
-from app.api import assignments, auth, files, imports, notifications, reference, structure, system, users
+from app.api import assignments, auth, files, forms, imports, notifications, reference, structure, system, users
 from app.auth.deps import SESSION_COOKIE
 from app.auth.rate_limit import api_limiter
 from app.config import get_settings
@@ -68,7 +68,7 @@ def create_app() -> FastAPI:
             response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         return response
 
-    for module in (system, auth, users, structure, reference, imports, files, assignments, notifications):
+    for module in (system, auth, users, structure, reference, imports, files, assignments, notifications, forms):
         app.include_router(module.router)
     return app
 

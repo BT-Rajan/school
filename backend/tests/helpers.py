@@ -10,7 +10,7 @@ from app.db import session_factory
 from app.mail import queue as mail
 from app.mail.providers import get_provider
 from app.models import Cluster, MfaMethod, ReferenceValue, Role, School, User, UserStatus
-from app.security import crypto, passwords
+from app.security import crypto, passwords, totp
 from app.structure.common import fold_search
 
 PASSWORD = "correct horse battery staple"
@@ -71,7 +71,8 @@ def login(client: TestClient, outbox, email: str, *, secret: str | None = None, 
     assert response.status_code == 200, response.text
     challenge = response.json()["challenge"]
     if secret:
-        code = pyotp.TOTP(secret).now()
+        # The server's clock, which tests may freeze, decides which code is current.
+        code = totp.code_at_step(secret, totp.current_step())
     else:
         code = last_code(outbox, email)
     response = client.post("/api/auth/login/verify", json={"challenge": challenge, "code": code})
@@ -153,3 +154,80 @@ def teacher_body(school_id: int, staff_id: str = "T-100", email: str = "teacher@
 def user_by_email(email: str) -> User:
     with session_factory()() as db:
         return db.execute(select(User).where(User.email == email)).scalar_one()
+
+
+def text(en: str, ar: str) -> dict:
+    return {"en": en, "ar": ar}
+
+
+def sample_schema(*, arabic: bool = True, teacher_section: bool = False) -> dict:
+    """A small complete form: a supervisor section with every common question type."""
+    ar = (lambda s: s) if arabic else (lambda s: "")
+    sections = [
+        {
+            "key": "visit",
+            "title": text("Visit", ar("الزيارة")),
+            "respondent": "supervisor",
+            "questions": [
+                {
+                    "key": "met_principal",
+                    "type": "yes_no",
+                    "label": text("Met the principal?", ar("هل قابلت المدير؟")),
+                    "required": True,
+                },
+                {
+                    "key": "reason_not_met",
+                    "type": "short_text",
+                    "label": text("Why not?", ar("لماذا لا؟")),
+                    "required": True,
+                    "visible_if": {"question": "met_principal", "op": "equals", "value": False},
+                },
+                {
+                    "key": "classrooms",
+                    "type": "number",
+                    "label": text("Classrooms visited", ar("الفصول التي زرتها")),
+                    "required": True,
+                    "min": 0,
+                    "max": 50,
+                    "score_weight": 2,
+                },
+                {
+                    "key": "rating",
+                    "type": "rating",
+                    "label": text("Overall", ar("التقييم العام")),
+                    "min": 1,
+                    "max": 5,
+                    "required": True,
+                },
+                {
+                    "key": "areas",
+                    "type": "multi_choice",
+                    "label": text("Areas", ar("المجالات")),
+                    "options": [
+                        {"code": "safety", "label": text("Safety", ar("السلامة"))},
+                        {"code": "teaching", "label": text("Teaching", ar("التدريس"))},
+                    ],
+                },
+                {
+                    "key": "staff",
+                    "type": "table",
+                    "label": text("Staff present", ar("الموظفون الحاضرون")),
+                    "columns": [
+                        {"key": "name", "type": "short_text", "label": text("Name", ar("الاسم")), "required": True},
+                        {"key": "present", "type": "yes_no", "label": text("Present", ar("حاضر"))},
+                    ],
+                },
+                {"key": "notes", "type": "long_text", "label": text("Notes", ar("ملاحظات"))},
+            ],
+        }
+    ]
+    if teacher_section:
+        sections.append(
+            {
+                "key": "self",
+                "title": text("Teacher input", ar("مدخلات المعلم")),
+                "respondent": "teacher",
+                "questions": [{"key": "comment", "type": "long_text", "label": text("Comment", ar("تعليق"))}],
+            }
+        )
+    return {"sections": sections}

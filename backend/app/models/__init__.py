@@ -13,6 +13,7 @@ from app.models.enums import (
     UserStatus,
 )
 from app.models.files import StoredFile
+from app.models.forms import FormReviewComment, FormVersion, MinistryReport, MinistryReportVersion
 from app.models.jobs import ImportBatch, Job
 from app.models.mail import MailDailyUsage, MailMessage
 from app.models.notifications import Notification, NotificationPreference
@@ -43,6 +44,8 @@ __all__ = [
     "CustomFieldDefinition",
     "District",
     "EntityStatus",
+    "FormReviewComment",
+    "FormVersion",
     "ImportBatch",
     "Invitation",
     "Job",
@@ -51,6 +54,8 @@ __all__ = [
     "MailPriority",
     "MailStatus",
     "MfaMethod",
+    "MinistryReport",
+    "MinistryReportVersion",
     "Notification",
     "NotificationPreference",
     "RateLimitEvent",
