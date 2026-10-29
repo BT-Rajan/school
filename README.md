@@ -21,9 +21,9 @@ no other supervisor can see.
 |---|---|
 | `backend/` | FastAPI service, worker and CLI (Python 3.13, SQLAlchemy, Alembic, MySQL 8) |
 | `frontend/` | React and TypeScript web app (Vite, TanStack Query, i18next), English and Arabic |
-| `e2e/` | Browser smoke test run before each release |
+| `e2e/` | Browser smoke test and PWA check, run before each release |
 | `deploy/` | Backup and restore scripts |
-| `docker-compose.yml` | Production stack: MySQL, migrations, API, worker, Caddy web server |
+| `docker-compose.yml` | Production stack: MySQL, migrations, API, worker, ClamAV, Caddy web server |
 
 ## Development
 
@@ -51,8 +51,9 @@ cd frontend && npm ci && npm run typecheck && npm test
 ```
 
 To run the app locally, set the `SCES_*` variables described in
-`backend/app/config.py` (use `SCES_MAIL_PROVIDER=console` to log mail instead
-of sending it), then:
+`backend/app/config.py`. For local work, `SCES_MAIL_PROVIDER=console` logs mail
+instead of sending it, `SCES_VIRUS_SCANNER=none` uses a test-only scanner, and
+`SCES_STORAGE_PATH` points file storage at a local folder. Then:
 
 ```bash
 cd backend && .venv/bin/python -m app.cli provision-database && .venv/bin/uvicorn app.main:app --port 8000

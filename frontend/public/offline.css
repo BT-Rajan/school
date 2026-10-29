@@ -1,0 +1,4 @@
+body { font-family: system-ui, Tahoma, Arial, sans-serif; background: #f6f7f9; color: #1c2330; margin: 0; padding: 32px 16px; }
+main { max-width: 440px; margin: 0 auto; background: #fff; border: 1px solid #d9dee6; border-radius: 8px; padding: 16px; }
+section + section { border-top: 1px solid #d9dee6; margin-top: 16px; padding-top: 16px; }
+button { font: inherit; padding: 8px 14px; border-radius: 8px; border: 1px solid #1f5fae; background: #1f5fae; color: #fff; }

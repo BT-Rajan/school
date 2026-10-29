@@ -1,6 +1,6 @@
-# School Cluster Evaluation System: Requirements v0.4
+# School Cluster Evaluation System: Requirements v0.4.1
 
-Oct 29, 2026 · Supersedes v0.3 (see git history) and v0.2
+Oct 29, 2026 · v0.4.1 replaces MinIO with an encrypted file volume (section 16). Supersedes v0.3 (see git history) and v0.2
 ([archived](archive/School_Cluster_Evaluation_System_Requirements_v0.2.docx))
 
 This revision applies the district's answers to the v0.3 open questions.
@@ -34,7 +34,7 @@ marked **[Confirm]** are still open and collected in section 21.
 | D4 | Mail provider | Gmail free tier for now, to be upgraded as use grows | FR-N6, FR-N8: quota of about 500 recipients a day by default, quota planning, daily digests, and a switchable mail provider. |
 | D5 | Login second factor | Google Authenticator as an alternative to email codes | FR-A12 to FR-A15: authenticator app codes (TOTP) and recovery codes. |
 | D6 | Two admins | Yes | FR-AD5 stays: at least two active admins. |
-| D7 | File storage | On the district's own servers | MinIO on the district's servers. Backups go to a separate server (section 16). |
+| D7 | File storage | On the district's own servers | Encrypted file volume on the district's servers. Backups go to a separate server (section 16). |
 | D8 | Forms | We build each form and leave it in draft. A District Admin publishes it with a start and end date in D/MM/YYYY format. | New Form Author role, form builder, and publishing rules (sections 8.2 and 8.3). |
 | D9 | Users | 2 District Admins, 30 supervisors, about 180 teachers | Sizing in section 15. |
 | D10 | Report recipients | Reports go to the District Admins, who receive all of them. Supervisors track their own reports on a dashboard. | Section 9.4 recipient is changed to District Admins, with forwarding by an admin. FR-D44 adds the supervisor dashboard. |
@@ -779,17 +779,21 @@ bulk invitation of about 212 users is sent over two days.
   generation, thumbnails, and retention flags.
 - **Mail:** a provider interface. Default: Gmail API over OAuth2 with a
   dedicated free Gmail account. Alternatives: Google Workspace or SMTP.
-- **Files:** MinIO (S3-compatible) on the district's servers, private
-  bucket, per-file envelope encryption, ClamAV scanning, session-bound
-  signed URLs.
+- **Files:** a storage volume on the district's server, outside the web
+  root, holding only encrypted objects (per-file envelope encryption).
+  ClamAV scanning and session-bound signed URLs. Storage sits behind an
+  interface, so an S3-compatible store can be added if the district needs
+  one. (v0.4 named MinIO; its images are no longer published for free, so
+  v0.4.1 does not depend on it.)
 - **Scanning on device:** edge detection and image cleanup in a Web Worker;
   PDF assembly on device for camera scans and on the server for uploaded
   images.
-- **PWA:** Workbox service worker, IndexedDB for offline data, Web Push via
-  VAPID.
+- **PWA:** web app manifest and service worker. Phase 1 ships an online-only
+  worker that caches static files and never API data; Phase 4 adds Workbox
+  for offline data in IndexedDB, and Web Push via VAPID.
 - **Deployment:** Docker Compose on the district's servers: API, worker,
-  MySQL, MinIO, ClamAV, and a TLS reverse proxy. Backups to a separate
-  server.
+  MySQL, ClamAV, and Caddy as the TLS reverse proxy. Encrypted backups of
+  the database and file volume to a separate server.
 
 #### 16.1 Core tables
 
@@ -982,7 +986,7 @@ Full suites do not run on every check-in.
 | Unit | On each change, touched modules only | Validators, email code and TOTP logic, conflict rules, form schema validation, publishing windows and time zones, scoring rules, locale formatting, hash computation, document state transitions |
 | Permission matrix | On changes to auth, roles, scoping, forms, or documents | Table-driven: every role, including Form Author, against every endpoint, with cross-cluster, cross-school, and same-school second supervisor cases |
 | Auth abuse | On changes to auth or mail | Code brute force, TOTP replay, recovery code reuse, lockout, rate limits, expired and reused codes |
-| API integration | On merge to main | Real MySQL and MinIO in containers: assign, reassign, conflicts, form draft, review, publish and close, evaluations, amendments, sections, requests, returns, report upload, submit, acknowledge, return, forward, soft delete, restore |
+| API integration | On merge to main | Real MySQL in a container, with file storage on a temporary volume: assign, reassign, conflicts, form draft, review, publish and close, evaluations, amendments, sections, requests, returns, report upload, submit, acknowledge, return, forward, soft delete, restore |
 | Form builder | On changes to the builder or renderer | Every question type round-trips from builder to renderer; preview matches the live form in both languages |
 | File safety | On changes to the file service | Type sniffing, PDF sanitization, EXIF removal, EICAR quarantine, size and page limits, signed URL binding and expiry |
 | Mail budget | On changes to mail | Reserve, digest, invitation spreading, next-day carry-over, provider switch |

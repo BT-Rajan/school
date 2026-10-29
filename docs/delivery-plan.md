@@ -58,8 +58,8 @@ with the real district structure loaded.
 
 - Server readiness on the district's hardware: public domain name, TLS
   certificate, firewall, separate backup server (Q10, Q13).
-- Repository, CI, Docker Compose stack: API, worker, MySQL, MinIO, ClamAV,
-  TLS reverse proxy. Backups for database, files, and keys.
+- Repository, CI, Docker Compose stack: API, worker, MySQL, ClamAV,
+  TLS reverse proxy, encrypted file volume. Backups for database, files, and keys.
 - Schema and migrations for all core tables, including forms, ministry
   catalog, and documents, so later phases add behavior, not structural
   rework. Soft delete on every table.
@@ -102,10 +102,9 @@ with the real district structure loaded.
 **Release:** staging on the district's servers. Admins load and check
 their data.
 
-**Status (Oct 29, 2026): in progress**
+**Status (Oct 29, 2026): built; waiting on the district to deploy**
 
-Built and tested (68 backend tests on MySQL 8, frontend unit tests, and a
-browser smoke test in `e2e/`):
+Built and verified:
 
 - Authentication with emailed codes and Google Authenticator, recovery codes,
   lockout, rate limits, sessions, CSRF protection, invitations, password reset,
@@ -119,23 +118,40 @@ browser smoke test in `e2e/`):
   list, supervisors, reference lists, custom fields, scoped access (404 out of
   scope), optimistic locking, CSV and Excel import with preview and idempotent
   commit, and export.
-- Web app in English and Arabic for all of the above, with right-to-left
-  layout, D/MM/YYYY dates, and a language switch on every screen and dialog
-  that keeps unsaved input.
-- Docker Compose stack (MySQL, migrations, API, worker, Caddy with automatic
-  TLS), CI, deployment guide, and backup and restore scripts.
+- File service: type detection from content, PDF sanitization (scripts,
+  attachments, forms, external actions), EXIF and GPS removal, HEIC to JPEG,
+  TIFF to PDF, per-file encryption, ClamAV scanning, quarantine with alerts,
+  checksums, quotas and limits, and download links bound to the session.
+- Web app in English and Arabic with right-to-left layout, D/MM/YYYY dates,
+  and a language switch on every screen and dialog that keeps unsaved input.
+- PWA shell: installable manifest and icons, and an online-only service worker
+  with a bilingual offline page. It never caches API data.
+- Docker Compose stack, CI, deployment guide, and backup and restore scripts.
 
-Still to do in Phase 1:
+How it was verified:
 
-- File service (FR-FS1 to FR-FS4): MinIO, ClamAV, content sniffing, PDF
-  sanitization, EXIF removal, per-file encryption, and session-bound signed
-  URLs. Needed before scanned reports in Phase 2. File backups come with it.
-- PWA shell: web app manifest and an online-only service worker.
-- Run the backup and restore scripts once against a real deployment.
-- Boot the Compose stack end to end. Image builds run in CI; they could not
-  be pulled in the development environment.
-- Send real mail through the district's Gmail account. The Gmail API
+- 84 backend tests against MySQL 8 with the real migrations, including a
+  role permission matrix and a test against a real ClamAV server.
+- Frontend unit tests, type-check and build in CI; both Docker images build
+  in CI.
+- The full Compose stack (MySQL, migrations, API, worker, ClamAV, Caddy with
+  HTTPS) booted locally. The browser smoke test passed against it with no
+  Content Security Policy violations, and the worker scanned an upload with
+  the real ClamAV service.
+- Backup and restore: a backup of the database and file volume was taken,
+  every volume deleted, and the backup restored. The audit chain verified,
+  every file decrypted with a matching checksum, Arabic file names survived,
+  sign-in worked, and the app user still could not delete audit rows.
+- PWA check (`e2e/pwa.cjs`): manifest served, service worker active, only
+  static files cached, offline page shown in both languages.
+
+Waiting on the district:
+
+- Send real mail through the district's Gmail account (Q12). The Gmail API
   provider is tested only against a mocked Google server.
+- Install on the district's server with its domain name (Q13), and run the
+  smoke test there.
+- Answers to the open Phase 1 questions: Q1, Q2, Q4, Q7, Q10, Q11, Q13.
 
 Schema note: tables for forms, the ministry catalog and documents are added
 by Phase 2 migrations. Adding tables needs no rework of existing ones.

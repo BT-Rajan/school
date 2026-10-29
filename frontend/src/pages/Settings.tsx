@@ -23,6 +23,10 @@ const KEYS = [
   "digest_time",
   "session_idle_hours",
   "custom_field_limit",
+  "upload_max_mb",
+  "upload_max_pages",
+  "upload_rate_per_hour",
+  "storage_quota_mb_per_user",
 ] as const;
 
 export default function Settings() {

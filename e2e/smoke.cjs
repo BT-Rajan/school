@@ -30,8 +30,11 @@ function totp(secret, offset = 0) {
 (async () => {
   const [inviteUrl, out] = process.argv.slice(2);
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1280, height: 860 } });
+  // E2E_IGNORE_HTTPS=1 accepts a self-signed certificate, for example Caddy's for localhost.
+  const contextOptions = { ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS === "1" };
+  const page = await browser.newPage({ ...contextOptions, viewport: { width: 1280, height: 860 } });
   page.on("pageerror", (e) => console.log("PAGE ERROR", e.message));
+  page.on("console", (m) => /Content Security Policy|Refused to/.test(m.text()) && console.log("CSP VIOLATION", m.text()));
   await page.goto(inviteUrl);
   await page.getByLabel("Password", { exact: true }).fill("a long district admin passphrase");
   await page.getByLabel("Confirm new password").fill("a long district admin passphrase");
@@ -78,7 +81,7 @@ function totp(secret, offset = 0) {
 
   await page.getByRole("button", { name: "تسجيل الخروج" }).click();
   await page.getByRole("heading", { name: "تسجيل الدخول" }).waitFor();
-  const phone = await browser.newPage({ viewport: { width: 375, height: 760 } });
+  const phone = await browser.newPage({ ...contextOptions, viewport: { width: 375, height: 760 } });
   await phone.goto(page.url());
   await phone.getByRole("heading").first().waitFor();
   await phone.screenshot({ path: `${out}/6-login-phone.png` });

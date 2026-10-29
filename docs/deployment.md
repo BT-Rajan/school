@@ -118,8 +118,8 @@ Moving to a paid plan later only changes `.env` (FR-N9).
 
 ## 5. Backups and restore
 
-`deploy/backup.sh` writes an encrypted, compressed database dump with a
-checksum, and deletes backups older than 30 days. Create the passphrase file
+`deploy/backup.sh` writes two encrypted archives with checksums: a compressed
+database dump and the file volume. It deletes backups older than 30 days. Create the passphrase file
 once and store a copy offline:
 
 ```bash
@@ -133,19 +133,40 @@ echo '15 1 * * * root cd /opt/sces && deploy/backup.sh >> /var/log/sces-backup.l
 ```
 
 Each month, restore the latest backup on a scratch server and check the audit
-chain (section 19, Restore):
+chain and the stored files (section 19, Restore). `restore.sh` restores the
+matching file archive too:
 
 ```bash
 deploy/restore.sh /srv/sces-backups/sces-20261105T011500Z.sql.gz.enc
 ```
 
 ```bash
-docker compose run --rm api python -m app.cli verify-audit
+docker compose exec api python -m app.cli verify-audit
 ```
 
-Uploaded files arrive in Phase 2. Their backup is added with the file service.
+```bash
+docker compose exec api python -m app.cli verify-files --sample 50
+```
 
-## 6. Emergency access
+`verify-files` decrypts each sampled file and compares it with its recorded
+checksum. Without `--sample` it checks every file.
+
+## 6. Files and virus scanning
+
+Uploaded files are stored in the `files-data` volume. Each file is encrypted
+with its own key before it is written, so the volume never holds readable
+content. Files are scanned by the `clamav` service before anyone can open
+them; a file that fails is kept in quarantine and the uploader and admins are
+emailed.
+
+ClamAV downloads new virus signatures several times a day, so the server needs
+outbound internet access to `database.clamav.net`. If the scanner is down,
+uploads wait and are scanned when it returns; nothing is served unscanned.
+
+Upload limits (size, pages, uploads per hour, storage per person) are under
+Settings.
+
+## 7. Emergency access
 
 If a District Admin loses their phone and recovery codes while no other admin
 can reset them, run the break-glass reset on the server (FR-A9). It writes a
@@ -155,7 +176,7 @@ critical audit entry and emails all other admins:
 docker compose exec api python -m app.cli break-glass-reset --email admin1@example.org
 ```
 
-## 7. Audit log integrity
+## 8. Audit log integrity
 
 The worker verifies the audit hash chain every night at 02:00 district time
 and alerts every admin by email if it is broken. To check now:
@@ -168,7 +189,7 @@ The application's database user can only read and add audit rows, never
 change or delete them (FR-L3). `provision-database` reapplies these grants on
 every deploy.
 
-## 8. Upgrades
+## 9. Upgrades
 
 ```bash
 cd /opt/sces && git pull && docker compose up -d --build
