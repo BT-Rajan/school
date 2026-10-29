@@ -21,6 +21,7 @@ from app.models.mail import MailDailyUsage, MailMessage
 from app.models.notifications import Notification, NotificationPreference
 from app.models.push import PushMessage, PushSubscription
 from app.models.requests import TeacherRequest
+from app.models.scoring import ScoreRecalculation, ScoreRuleSet
 from app.models.structure import (
     Cluster,
     CustomFieldDefinition,
@@ -76,6 +77,8 @@ __all__ = [
     "ReferenceValue",
     "Role",
     "School",
+    "ScoreRecalculation",
+    "ScoreRuleSet",
     "StoredFile",
     "SchoolContact",
     "Supervisor",

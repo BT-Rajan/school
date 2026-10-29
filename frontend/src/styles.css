@@ -82,7 +82,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 .alert-error { background: #fdecea; color: var(--danger); border: 1px solid #f5c2bd; }
 .alert-ok { background: #e7f5ec; color: var(--ok); border: 1px solid #b9e2c8; }
 .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.8rem; background: #eef1f5; }
-.badge-active, .badge-created { background: #e7f5ec; color: var(--ok); }
+.badge-active, .badge-created, .badge-done { background: #e7f5ec; color: var(--ok); }
 .badge-inactive, .badge-error { background: #fdecea; color: var(--danger); }
 .badge-invited, .badge-updated { background: #fff4dc; color: #7a5200; }
 
@@ -225,3 +225,7 @@ td .row-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 .scan-frame svg { position: absolute; inset: 0; inline-size: 100%; block-size: 100%; pointer-events: none; }
 .scan-frame polygon { fill: rgb(31 95 174 / 15%); stroke: var(--primary); stroke-width: 0.006; }
 .scan-corner { position: absolute; inline-size: 36px; block-size: 36px; margin: -18px 0 0 -18px; border-radius: 50%; border: 3px solid var(--primary); background: rgb(255 255 255 / 70%); padding: 0; min-block-size: 0; touch-action: none; }
+
+/* Scoring rule sets (FR-SC2): the formula is edited as JSON. */
+.code-block { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; inline-size: 100%; }
+.badge-failed, .badge-discarded { background: #fdecea; color: var(--danger); }

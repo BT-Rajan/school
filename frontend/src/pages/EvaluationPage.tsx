@@ -213,6 +213,16 @@ export default function EvaluationPage() {
             <><dt>{t("evaluations.formCloses")}</dt><dd className="ltr">{formatDate(e.form_end_date)}</dd></>
           )}
           {e.cancel_reason && (<><dt>{t("common.reason")}</dt><dd dir="auto">{e.cancel_reason}</dd></>)}
+          {e.score && (
+            <>
+              <dt>{t("scoring.score")}</dt>
+              <dd>
+                <span className="ltr">{t("scoring.scoreValue", { points: e.score.points, max: e.score.max, percent: e.score.percent ?? "-" })}</span>
+                {e.score.band && <> · <strong>{i18n.language === "ar" ? e.score.band.ar || e.score.band.en : e.score.band.en}</strong></>}
+                <span className="hint"> · {t("scoring.byRuleSet", { n: e.score.rule_set_number })}</span>
+              </dd>
+            </>
+          )}
         </dl>
         <div className="page-actions">
           {e.status !== "draft" && e.status !== "cancelled" && (

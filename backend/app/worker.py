@@ -9,7 +9,7 @@ from datetime import timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app import clock
+from app import clock, jobs
 from app.audit import service as audit
 from app.auth import rate_limit
 from app.db import session_factory
@@ -22,6 +22,7 @@ from app.mail import queue as mail
 from app.models import Job
 from app.push import service as push
 from app.requests import service as requests
+from app.scoring import service as scoring  # noqa: F401 - registers its job handlers
 
 log = logging.getLogger(__name__)
 
@@ -85,6 +86,7 @@ def run_forever() -> None:
                 mail.dispatch(db)
                 files.scan_pending(db)
                 push.dispatch(db)
+                jobs.run_next(db)
                 if time.monotonic() - last_housekeeping > HOUSEKEEPING_INTERVAL_SECONDS:
                     housekeeping(db)
                     last_housekeeping = time.monotonic()

@@ -249,7 +249,56 @@ export interface EvaluationSummary {
   amended_at: string | null;
   form_status: FormStatus;
   form_end_date: string | null;
+  /** FR-SC3: calculated on the server at submission, with the rule set that gave it. */
+  score: Score | null;
   version: number;
+}
+
+export interface Score {
+  points: number;
+  max: number;
+  percent: number | null;
+  band: { en: string; ar: string } | null;
+  sections: Record<string, { points: number; max: number }>;
+  rule_set_id: number;
+  rule_set_number: number;
+  calculated_at: string;
+}
+
+export interface RuleSetProblem {
+  where: string;
+  code: string;
+  detail?: string;
+}
+
+export interface RuleSet {
+  id: number;
+  form_id: number;
+  number: number;
+  status: "draft" | "active" | "retired" | "discarded";
+  rules: Record<string, unknown>;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+  activated_by: string | null;
+  activated_at: string | null;
+  retired_at: string | null;
+  version: number;
+  problems?: RuleSetProblem[];
+  examples?: { name: string; matches: boolean; mismatches: string[]; result: Omit<Score, "rule_set_id" | "rule_set_number" | "calculated_at"> }[];
+}
+
+export interface Recalculation {
+  id: number;
+  form_id: number;
+  rule_set: { id: number; number: number };
+  reason: string;
+  status: "queued" | "running" | "done" | "failed";
+  evaluations: number;
+  changed: number;
+  requested_by: string | null;
+  requested_at: string;
+  finished_at: string | null;
 }
 
 export type RequestStatus = "not_started" | "in_progress" | "submitted" | "returned" | "waived" | "cancelled";

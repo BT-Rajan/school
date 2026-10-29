@@ -20,7 +20,11 @@ class Job(Base):
     attempts: Mapped[int] = mapped_column(default=0)
     run_after: Mapped[datetime] = mapped_column(default=clock.now, index=True)
     last_error: Mapped[str | None] = mapped_column(String(1000))
+    # Who asked for it, and what it produced (an export's file, a count), for jobs people start.
+    created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    result: Mapped[dict[str, Any] | None]
     created_at: Mapped[datetime] = mapped_column(default=clock.now)
+    started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
 
 

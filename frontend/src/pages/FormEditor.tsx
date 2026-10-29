@@ -136,7 +136,7 @@ export default function FormEditor() {
 
   return (
     <>
-      <p><Link to="/forms">← {t("nav.forms")}</Link></p>
+      <p><Link to="/forms">← {t("nav.forms")}</Link> · <Link to={`/forms/${data.id}/scoring`}>{t("scoring.title")}</Link></p>
       <PageHeader title={`${data.report.code} · ${data.catalog.version_code}`}>
         <StatusBadge status={data.status} />
       </PageHeader>

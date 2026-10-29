@@ -25,6 +25,9 @@ LABELS = {
         "submitted": "Submitted",
         "amended": "Last amended",
         "notes": "Visit notes",
+        "score": "Score",
+        "score_value": "{points} of {max} ({percent}%)",
+        "rule_set": "scoring rules {n}",
         "yes": "Yes",
         "no": "No",
         "files": "{n} attachment(s)",
@@ -43,6 +46,9 @@ LABELS = {
         "submitted": "تاريخ الإرسال",
         "amended": "آخر تعديل",
         "notes": "ملاحظات الزيارة",
+        "score": "الدرجة",
+        "score_value": "{points} من {max} ({percent}%)",
+        "rule_set": "قواعد التقييم {n}",
         "yes": "نعم",
         "no": "لا",
         "files": "{n} مرفق",
@@ -50,6 +56,13 @@ LABELS = {
         "statuses": {"draft": "مسودة", "submitted": "مُرسل", "amended": "معدّل", "cancelled": "ملغى"},
     },
 }
+
+
+def _number(value: Any) -> str:
+    """12.0 as 12, 66.67 as is."""
+    if value is None:
+        return "-"
+    return f"{value:g}" if isinstance(value, int | float) else str(value)
 
 
 def _date(value: Any) -> str:
@@ -155,6 +168,15 @@ def render_evaluation(data: dict[str, Any], schema: dict[str, Any], locale: str,
     ]
     if data.get("amended_at"):
         meta.append((words["amended"], _date(data["amended_at"])))
+    score = data.get("score")
+    if score:
+        # FR-SC3: the score as stored, with the rule set that gave it.
+        value = words["score_value"].format(
+            points=_number(score["points"]), max=_number(score["max"]), percent=_number(score["percent"])
+        )
+        if score.get("band"):
+            value += f" · {score['band'].get(locale) or score['band'].get('en')}"
+        meta.append((words["score"], f"{value} · {words['rule_set'].format(n=score['rule_set_number'])}"))
     for label, value in meta:
         pdf.line(f"{label}: {value}", gap=0.5)
     if data.get("visit_notes"):

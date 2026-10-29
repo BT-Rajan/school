@@ -132,6 +132,7 @@ function StartDialog({ onClose, initialSchool }: { onClose: () => void; initialS
         teacher: teacher ? { id: teacher.id, name: teacher.name } : null,
         supervisor: { id: assignment.supervisor.id, name: me?.name ?? "" },
         status: "draft",
+        score: null,
         visit_date: body.visit_date,
         submitted_at: null,
         amended_at: null,

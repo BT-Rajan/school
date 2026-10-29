@@ -37,6 +37,7 @@ from app.models import (
 )
 from app.notifications import service as notify
 from app.requests import service as requests
+from app.scoring import service as scoring
 from app.structure.common import deny, managed_cluster_ids
 from app.structure.service import paginate
 
@@ -193,6 +194,7 @@ def evaluation_out(db: Session, e: Evaluation, *, full: bool = True) -> dict[str
         "amended_at": e.amended_at,
         "form_status": form.effective_status(_today(db)),
         "form_end_date": form.end_date,
+        "score": e.score,
         "version": e.version,
     }
     if full:
@@ -431,6 +433,8 @@ def submit(db: Session, principal: Principal, evaluation_id: int, body: SubmitIn
         e.location_accuracy_m = body.location.accuracy_m
     e.status, e.submitted_at = "submitted", now
     db.flush()
+    # FR-SC3: scored on the server, with the form's active rule set.
+    scoring.score_submitted(db, e)
     school = db.get(School, e.school_id)
     audit.record(
         db,
@@ -477,6 +481,8 @@ def amend(db: Session, principal: Principal, evaluation_id: int, body: AmendIn) 
     db.add(EvaluationAmendment(evaluation_id=e.id, reason=body.reason, prior=prior, created_by=principal.user.id))
     e.status, e.amended_at = "amended", clock.now()
     db.flush()
+    before_score = e.score
+    scoring.score_amended(db, e)
     school = db.get(School, e.school_id)
     audit.record(
         db,
@@ -484,7 +490,12 @@ def amend(db: Session, principal: Principal, evaluation_id: int, body: AmendIn) 
         entity_type="evaluation",
         entity_id=e.id,
         cluster_id=school.cluster_id,
-        after={"reason": body.reason, "sections": sorted(body.sections)},
+        after={
+            "reason": body.reason,
+            "sections": sorted(body.sections),
+            "score_before": before_score and before_score.get("points"),
+            "score_after": e.score and e.score.get("points"),
+        },
     )
     _notify_reviewers(db, e, "evaluation_amended", reason=body.reason)
     db.commit()

@@ -20,6 +20,7 @@ from app.api import (
     realtime,
     reference,
     requests,
+    scoring,
     structure,
     system,
     uploads,
@@ -104,6 +105,7 @@ def create_app() -> FastAPI:
         realtime,
         push,
         uploads,
+        scoring,
     ):
         app.include_router(module.router)
     return app

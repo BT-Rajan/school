@@ -26,6 +26,7 @@ import Requests from "./pages/Requests";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Schools from "./pages/Schools";
+import Scoring from "./pages/Scoring";
 import Settings from "./pages/Settings";
 import Staff from "./pages/Staff";
 import Supervisors from "./pages/Supervisors";
@@ -148,6 +149,7 @@ export default function App() {
         <Route path="/assignments" element={<Protected roles={MANAGERS}><Assignments /></Protected>} />
         <Route path="/forms" element={<Protected roles={FORM_BUILDERS}><Forms /></Protected>} />
         <Route path="/forms/:id" element={<Protected roles={FORM_BUILDERS}><FormEditor /></Protected>} />
+        <Route path="/forms/:id/scoring" element={<Protected roles={FORM_BUILDERS}><Scoring /></Protected>} />
         <Route path="/evaluations" element={<Protected roles={FIELD}><Evaluations /></Protected>} />
         <Route path="/evaluations/:id" element={<Protected roles={FIELD}><EvaluationPage /></Protected>} />
         <Route path="/reports" element={<Protected roles={FIELD}><Reports /></Protected>} />
