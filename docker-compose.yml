@@ -19,6 +19,9 @@ x-backend-env: &backend-env
   SCES_SMTP_PORT: ${SCES_SMTP_PORT:-587}
   SCES_SMTP_USERNAME: ${SCES_SMTP_USERNAME:-}
   SCES_SMTP_PASSWORD: ${SCES_SMTP_PASSWORD:-}
+  SCES_STORAGE_PATH: /var/lib/sces/files
+  SCES_VIRUS_SCANNER: clamd
+  SCES_CLAMD_HOST: clamav
 
 services:
   db:
@@ -47,10 +50,19 @@ services:
       db:
         condition: service_healthy
 
+  # Virus scanner (FR-FS3). Updates its signatures itself; needs outbound internet.
+  clamav:
+    image: clamav/clamav:1.4
+    restart: unless-stopped
+    volumes:
+      - clamav-db:/var/lib/clamav
+
   api:
     build: ./backend
     restart: unless-stopped
     environment: *backend-env
+    volumes:
+      - files-data:/var/lib/sces/files
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -63,9 +75,13 @@ services:
     restart: unless-stopped
     command: ["python", "-m", "app.cli", "worker"]
     environment: *backend-env
+    volumes:
+      - files-data:/var/lib/sces/files
     depends_on:
       migrate:
         condition: service_completed_successfully
+      clamav:
+        condition: service_started
 
   web:
     build: ./frontend
@@ -83,5 +99,8 @@ services:
 
 volumes:
   db-data:
+  # Encrypted file objects. Back up together with the database (deploy/backup.sh).
+  files-data:
+  clamav-db:
   caddy-data:
   caddy-config:

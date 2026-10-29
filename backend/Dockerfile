@@ -10,7 +10,8 @@ RUN pip install .
 COPY alembic.ini ./
 COPY migrations ./migrations
 
-RUN useradd --system --uid 10001 sces
+RUN useradd --system --uid 10001 sces \
+    && mkdir -p /var/lib/sces/files && chown -R sces /var/lib/sces
 USER sces
 
 EXPOSE 8000

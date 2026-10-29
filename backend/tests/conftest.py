@@ -24,6 +24,7 @@ os.environ.update(
         "SCES_COOKIE_SECURE": "false",
         "SCES_PUBLIC_BASE_URL": "https://sces.test",
         "SCES_MAIL_PROVIDER": "console",
+        "SCES_VIRUS_SCANNER": "none",
     }
 )
 
@@ -89,6 +90,17 @@ def clean_database(root_engine):
     clock.freeze(None)
     yield
     clock.freeze(None)
+
+
+@pytest.fixture(autouse=True)
+def file_store(tmp_path):
+    from app.files import scanner, storage
+
+    storage.set_store(storage.LocalDiskStore(str(tmp_path / "files")))
+    scanner.set_scanner(scanner.DevelopmentScanner())
+    yield storage.get_store()
+    storage.set_store(None)
+    scanner.set_scanner(None)
 
 
 @pytest.fixture

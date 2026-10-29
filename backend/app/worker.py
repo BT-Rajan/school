@@ -15,6 +15,7 @@ from app.auth import rate_limit
 from app.db import session_factory
 from app.district import get_district, local_time_utc
 from app.errors import AppError
+from app.files import service as files
 from app.mail import queue as mail
 from app.models import Job
 
@@ -74,6 +75,7 @@ def run_forever() -> None:
         try:
             with session_factory()() as db:
                 mail.dispatch(db)
+                files.scan_pending(db)
                 if time.monotonic() - last_housekeeping > HOUSEKEEPING_INTERVAL_SECONDS:
                     housekeeping(db)
                     last_housekeeping = time.monotonic()

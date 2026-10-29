@@ -43,6 +43,10 @@ EDITABLE_SETTINGS = {
     "invitation_daily_cap": int,
     "digest_time": str,
     "custom_field_limit": int,
+    "upload_max_mb": int,
+    "upload_max_pages": int,
+    "upload_rate_per_hour": int,
+    "storage_quota_mb_per_user": int,
 }
 
 

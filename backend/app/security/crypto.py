@@ -29,3 +29,28 @@ def decrypt(token: str, *, context: str) -> str:
 
 def generate_key() -> str:
     return base64.urlsafe_b64encode(os.urandom(32)).decode().rstrip("=")
+
+
+# Envelope encryption for stored files (FR-D50): each file has its own random data
+# key; only the data key, wrapped with the master key, is kept in the database.
+
+
+def new_data_key() -> bytes:
+    return os.urandom(32)
+
+
+def wrap_key(data_key: bytes, *, context: str) -> str:
+    return encrypt(base64.urlsafe_b64encode(data_key).decode(), context=f"wrap:{context}")
+
+
+def unwrap_key(wrapped: str, *, context: str) -> bytes:
+    return base64.urlsafe_b64decode(decrypt(wrapped, context=f"wrap:{context}"))
+
+
+def seal(data: bytes, key: bytes, *, context: str) -> bytes:
+    nonce = os.urandom(12)
+    return nonce + AESGCM(key).encrypt(nonce, data, context.encode())
+
+
+def open_sealed(blob: bytes, key: bytes, *, context: str) -> bytes:
+    return AESGCM(key).decrypt(blob[:12], blob[12:], context.encode())

@@ -146,6 +146,28 @@ def provision_database(args) -> None:
     print(f"Database {database} migrated; {user} provisioned.")
 
 
+def verify_files(args) -> None:
+    """Decrypt stored files and compare each with its recorded SHA-256 (FR-D56, restore test)."""
+    import random
+
+    from app.files.service import read_content
+    from app.models.files import StoredFile
+
+    with session_factory()() as db:
+        ids = list(db.execute(select(StoredFile.id).where(StoredFile.deleted_at.is_(None))).scalars())
+        sample = ids if args.sample <= 0 or args.sample >= len(ids) else random.sample(ids, args.sample)
+        failures = []
+        for file_id in sample:
+            try:
+                read_content(db.get(StoredFile, file_id))
+            except Exception as exc:  # noqa: BLE001 - every failure is reported
+                failures.append(f"{file_id}: {type(exc).__name__}")
+    print(f"{len(sample) - len(failures)} of {len(sample)} files verified")
+    for line in failures:
+        print(f"FAILED {line}")
+    sys.exit(1 if failures else 0)
+
+
 def worker(_args) -> None:
     from app.worker import run_forever
 
@@ -191,6 +213,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--user", default="sces_app")
     p.add_argument("--host", default="%")
     p.set_defaults(func=grants_sql)
+
+    p = commands.add_parser("verify-files", help="Check stored files against their checksums")
+    p.add_argument("--sample", type=int, default=0, help="Number of random files to check; 0 checks all")
+    p.set_defaults(func=verify_files)
 
     p = commands.add_parser("provision-database", help="Migrate and provision the application database user")
     p.add_argument("--user", default="sces_app")

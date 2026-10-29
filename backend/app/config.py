@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     gmail_client_secret: str = ""
     gmail_refresh_token: str = ""
 
+    # Encrypted file objects (FR-FS1), on a volume outside the web root.
+    storage_path: str = "/var/lib/sces/files"
+
+    # Virus scanning (FR-FS3). "clamd" is required in production; "none" is for development only.
+    virus_scanner: str = "clamd"
+    clamd_host: str = "clamav"
+    clamd_port: int = 3310
+
     # Check new passwords against the Have I Been Pwned range API (k-anonymity).
     # Fails open when the service cannot be reached; the bundled list still applies.
     breached_password_api: bool = False
@@ -50,4 +58,7 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()
+    settings = Settings()
+    if settings.environment == "production" and settings.virus_scanner != "clamd":
+        raise ValueError("SCES_VIRUS_SCANNER must be clamd in production")
+    return settings

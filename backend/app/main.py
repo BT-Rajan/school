@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app import context
-from app.api import auth, imports, reference, structure, system, users
+from app.api import auth, files, imports, reference, structure, system, users
 from app.auth.deps import SESSION_COOKIE
 from app.auth.rate_limit import api_limiter
 from app.config import get_settings
@@ -63,10 +63,10 @@ def create_app() -> FastAPI:
         if settings.cookie_secure:
             response.headers["Strict-Transport-Security"] = "max-age=63072000; includeSubDomains"
         if request.url.path.startswith("/api") and not request.url.path.startswith("/api/docs"):
-            response.headers["Content-Security-Policy"] = "default-src 'none'; frame-ancestors 'none'"
+            response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         return response
 
-    for module in (system, auth, users, structure, reference, imports):
+    for module in (system, auth, users, structure, reference, imports, files):
         app.include_router(module.router)
     return app
 

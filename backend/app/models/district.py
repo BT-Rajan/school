@@ -18,6 +18,10 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "audit_verify_time": "02:00",
     "audit_retention_years": 7,
     "custom_field_limit": 15,
+    "upload_max_mb": 25,
+    "upload_max_pages": 50,
+    "upload_rate_per_hour": 60,
+    "storage_quota_mb_per_user": 2048,
 }
 
 

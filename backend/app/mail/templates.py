@@ -94,6 +94,37 @@ TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
             "ستؤجل التذكيرات والإشعارات إلى الغد عند بلوغ الحد. رموز تسجيل الدخول محجوزة.",
         ),
     },
+    "file_quarantined": {
+        "en": (
+            "A file you uploaded was blocked",
+            "The file {name} failed the virus check and will not be shown to anyone. "
+            "Scan the paper again and upload a new copy.",
+        ),
+        "ar": (
+            "تم حظر ملف قمت برفعه",
+            "لم يجتز الملف {name} فحص الفيروسات ولن يُعرض على أي شخص. امسح الورقة ضوئيًا مرة أخرى وارفع نسخة جديدة.",
+        ),
+    },
+    "file_quarantined_admin": {
+        "en": (
+            "File {id} quarantined by the virus scanner",
+            "The virus scanner flagged file {id} ({signature}). It is kept in quarantine and never served.",
+        ),
+        "ar": (
+            "عزل الملف {id} بواسطة فاحص الفيروسات",
+            "رصد فاحص الفيروسات الملف {id} ({signature}). تم عزله ولن يُقدَّم لأي مستخدم.",
+        ),
+    },
+    "scanner_unavailable": {
+        "en": (
+            "Virus scanner unavailable",
+            "Uploaded files are waiting because the virus scanner cannot be reached. Check the clamav service.",
+        ),
+        "ar": (
+            "فاحص الفيروسات غير متاح",
+            "الملفات المرفوعة في الانتظار لأنه يتعذر الوصول إلى فاحص الفيروسات. تحقق من خدمة clamav.",
+        ),
+    },
     "digest": {
         "en": ("Your daily summary", "Here is what happened today:\n\n{items}"),
         "ar": ("ملخصك اليومي", "إليك ما حدث اليوم:\n\n{items}"),

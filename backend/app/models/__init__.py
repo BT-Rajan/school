@@ -11,6 +11,7 @@ from app.models.enums import (
     Role,
     UserStatus,
 )
+from app.models.files import StoredFile
 from app.models.jobs import ImportBatch, Job
 from app.models.mail import MailDailyUsage, MailMessage
 from app.models.structure import (
@@ -53,6 +54,7 @@ __all__ = [
     "ReferenceValue",
     "Role",
     "School",
+    "StoredFile",
     "SchoolContact",
     "Supervisor",
     "SupervisorClusterMove",
