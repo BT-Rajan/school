@@ -154,6 +154,17 @@ def test_overlapping_versions_need_confirmation(people):
     assert publish(admin, second, "2026-11-20", "2026-12-20", confirm_overlap=True).status_code == 200
 
 
+def test_a_new_report_is_listed_for_builders_before_its_first_version(people):
+    author, admin = people["author"], people["admin"]
+    report = author.post("/api/catalog/reports", json={"report_code": "NEW-1", "subject_type": "teacher"}).json()
+    for client in (author, admin):
+        listed = {r["report_code"]: r for r in client.get("/api/catalog").json()}
+        assert listed["NEW-1"]["versions"] == [] and listed["NEW-1"]["id"] == report["id"]
+    sup = people["new_client"]()
+    login(sup, people["outbox"], "sup@example.org")
+    assert sup.get("/api/catalog").json() == []
+
+
 def test_supervisors_see_published_forms_only(people):
     author, admin = people["author"], people["admin"]
     draft = draft_form(author, code="DRAFT-1")

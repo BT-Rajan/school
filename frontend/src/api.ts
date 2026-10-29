@@ -71,3 +71,26 @@ export function query(params: Record<string, string | number | boolean | undefin
   const text = search.toString();
   return text ? `?${text}` : "";
 }
+
+/** Upload one file to the file service (FR-FS2). The server checks, cleans and scans it. */
+export async function uploadFile<T>(file: File): Promise<T> {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  return api<T>("/api/files", { method: "POST", form });
+}
+
+/**
+ * Open a short-lived, session-bound link in a new tab. The tab is opened before the
+ * request so browsers treat it as a direct result of the click and do not block it.
+ */
+export async function openLink(getLink: () => Promise<{ url: string }>): Promise<void> {
+  const tab = window.open("", "_blank");
+  try {
+    const { url } = await getLink();
+    if (tab) tab.location.href = url;
+    else window.location.assign(url);
+  } catch (error) {
+    tab?.close();
+    throw error;
+  }
+}

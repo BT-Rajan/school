@@ -13,7 +13,7 @@ from zoneinfo import ZoneInfo
 
 import pikepdf
 from PIL import Image
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -66,6 +66,12 @@ class CreateIn(BaseModel):
     client_key: str | None = Field(default=None, max_length=64)
     device_time: datetime | None = None
     confirm_duplicate: bool = False
+
+    @field_validator("device_time")
+    @classmethod
+    def _naive_utc(cls, value: datetime | None) -> datetime | None:
+        # Browsers send "...Z"; the server keeps naive UTC throughout.
+        return value.astimezone(UTC).replace(tzinfo=None) if value and value.tzinfo else value
 
 
 class UpdateIn(BaseModel):

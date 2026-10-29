@@ -221,6 +221,60 @@ forms or by scanning paper reports and submitting them to the admins.
 
 **Release:** Pilot 1, one cluster. Paper is still allowed as a fallback.
 
+**Status (Oct 29, 2026): built; security review and district pilot to come**
+
+Built:
+
+- Ministry report catalog with report and version IDs; Form Author builder
+  for every question type, sections by respondent, conditions on earlier
+  questions, English and Arabic text, score weights; preview by respondent,
+  language and screen width.
+- Review by District Admins: return with comments, publish with D/MM/YYYY
+  start and end dates in district time, change the end date, close early,
+  confirm overlapping windows.
+- Assignment board with workload, assign, end, reassign with a choice for
+  open evaluation drafts, history, and optimistic locking.
+- Evaluations (supervisor sections): drafts, server-checked answers shown
+  next to each question, submission with optional location, amendments with
+  reasons, cancellation, and PDF reports in English and Arabic with the
+  ministry IDs.
+- Scanned report vault: photos and PDFs from the device or camera joined into
+  one PDF in order; "My reports", the admin inbox and "Forwarded to me";
+  submit, withdraw, return, new versions and corrections, acknowledge,
+  forward to the Cluster Head and revoke, soft delete and restore, archive;
+  watermarked copies for everyone but the owner; access history; the
+  supervisor dashboard with coverage and monthly counts.
+- Notification center with per-type, per-channel choices and text in both
+  languages; email copies in the daily digest; a daily reminder to admins of
+  reports waiting past the acknowledgement period.
+
+How it was verified:
+
+- 141 backend tests against MySQL 8 with the real migrations, including the
+  permission matrix for every Phase 2 endpoint, the same-school second
+  supervisor case and the post-reassignment case.
+- Browser test (`e2e/phase2.cjs`, seeded by `e2e/seed_phase2.py`) through
+  the screens of every role: the author builds a form, an admin returns and
+  then publishes it, the Cluster Head assigns two supervisors to one school,
+  a supervisor evaluates, downloads the Arabic PDF and amends, uploads a
+  photo and a PDF as one report, the second supervisor gets nothing even by
+  address, the admin opens, returns and acknowledges the report and shares it
+  with the Cluster Head, who can then read it. Also checks notifications and
+  the dashboard in Arabic, and the upload dialog on a phone screen. No page
+  errors and no Content Security Policy violations.
+- Running it found and fixed: a new ministry report hidden from its author
+  until it had a version; question editors folding while being typed in;
+  a stale version sent when "Send for review" followed "Save"; and a server
+  error on browser device times with a time zone.
+
+Not yet done:
+
+- Teacher evaluations were tested through the API, not yet in the browser.
+- The focused security review of document and form endpoints.
+- Phase 2 on the full Compose stack with the real ClamAV service. Phase 1
+  was verified there; CI builds the images.
+- The pilot cluster's data and the first real ministry report form.
+
 ---
 
 ## Phase 3: Teacher participation

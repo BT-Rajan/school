@@ -326,6 +326,18 @@ def test_retried_upload_creates_one_document(w):
     assert len(ids) == 1
 
 
+def test_device_time_from_a_browser_is_accepted(w):
+    # Browsers send an ISO time with "Z"; a clock far off is recorded, not refused.
+    for device_time, skewed in (("2026-11-10T06:00:00Z", False), ("2026-11-12T09:00:00+03:00", True)):
+        r = create(w["a"], w, device_time=device_time)
+        assert r.status_code == 201, r.text
+        with session_factory()() as db:
+            logged = db.execute(
+                select(AuditLog).where(AuditLog.action == "document.clock_skew", AuditLog.entity_id == r.json()["id"])
+            ).first()
+        assert bool(logged) == skewed
+
+
 def test_duplicate_file_warning(w):
     a = w["a"]
     content = pdf_bytes(1)

@@ -146,3 +146,212 @@ export interface ImportBatch {
   rows: ImportRow[];
   invitation_schedule: { date: string; count: number }[];
 }
+
+// Phase 2 ------------------------------------------------------------------------------------
+
+export interface Bilingual {
+  en: string;
+  ar: string;
+}
+
+export interface Assignment {
+  id: number;
+  supervisor: { id: number; name: string; staff_id: string };
+  school: { id: number; code: string; name: string };
+  start_date: string;
+  end_date: string | null;
+  state: "upcoming" | "active" | "ended";
+  reason: string | null;
+  end_reason: string | null;
+  version: number;
+  created_by?: string;
+  created_at?: string;
+  ended_by?: string | null;
+  ended_at?: string | null;
+}
+
+export interface Board {
+  cluster: { id: number; code: string; name: string };
+  schools: { id: number; code: string; name: string; assignments: Assignment[] }[];
+  supervisors: { id: number; name: string; staff_id: string; active_schools: number }[];
+}
+
+export type FormStatus = "draft" | "in_review" | "scheduled" | "active" | "closed";
+
+export interface CatalogVersion {
+  id: number;
+  version_code: string;
+  title_en: string;
+  title_ar: string;
+  ministry_published_on: string | null;
+  source_file_id: number | null;
+  form_id: number;
+  status: FormStatus;
+  start_date: string | null;
+  end_date: string | null;
+}
+
+export interface CatalogReport {
+  id: number;
+  report_code: string;
+  subject_type: "school" | "teacher";
+  versions: CatalogVersion[];
+}
+
+export interface FormSummary {
+  id: number;
+  report: { id: number; code: string; subject_type: "school" | "teacher" };
+  catalog: {
+    id: number;
+    version_code: string;
+    title_en: string;
+    title_ar: string;
+    ministry_published_on: string | null;
+    source_file_id: number | null;
+  };
+  status: FormStatus;
+  start_date: string | null;
+  end_date: string | null;
+  closed_at: string | null;
+  version: number;
+}
+
+export interface FormDetail extends FormSummary {
+  schema: import("./forms/schema").FormSchema;
+  problems: Problem[];
+}
+
+export interface FormComment {
+  action: string;
+  comment: string;
+  by: string;
+  role: Role;
+  at: string;
+}
+
+export interface Problem {
+  where: string;
+  code: string;
+}
+
+export interface EvaluationSummary {
+  id: number;
+  form_id: number;
+  report: { code: string; version_code: string; title_en: string; title_ar: string };
+  subject_type: "school" | "teacher";
+  school: { id: number; code: string; name: string };
+  teacher: { id: number; name: string; staff_id?: string } | null;
+  supervisor: { id: number; name: string };
+  status: "draft" | "submitted" | "amended" | "cancelled";
+  visit_date: string | null;
+  submitted_at: string | null;
+  amended_at: string | null;
+  form_status: FormStatus;
+  form_end_date: string | null;
+  version: number;
+}
+
+export interface Evaluation extends EvaluationSummary {
+  visit_notes: string | null;
+  location: { latitude: number; longitude: number; accuracy_m: number | null } | null;
+  cancel_reason: string | null;
+  sections: {
+    key: string;
+    respondent: "supervisor" | "teacher";
+    status: string;
+    answers: Record<string, unknown>;
+    submitted_at: string | null;
+  }[];
+}
+
+export interface Amendment {
+  reason: string;
+  prior: { visit_date: string | null; visit_notes: string | null; sections: Record<string, Record<string, unknown>> };
+  by: string;
+  at: string;
+}
+
+export type DocumentStatus = "draft" | "submitted" | "viewed" | "acknowledged" | "returned" | "withdrawn" | "deleted";
+
+export interface ReportRef {
+  code: string;
+  version_code: string;
+  version_id: number;
+  title_en: string;
+  title_ar: string;
+}
+
+export interface DocumentSummary {
+  id: number;
+  title: string;
+  report: ReportRef;
+  school: { id: number; code: string; name: string };
+  cluster_id: number;
+  teacher_id: number | null;
+  evaluation_id: number | null;
+  supervisor: { id: number; name: string };
+  report_date: string;
+  status: DocumentStatus;
+  submitted_at: string | null;
+  first_viewed_at: string | null;
+  acknowledged_at: string | null;
+  returned_at: string | null;
+  review_comment: string | null;
+  archived: boolean;
+  overdue: boolean;
+  retention_expired: boolean;
+  file: { status: string; pages: number | null; size: number } | null;
+  mine: boolean;
+  version: number;
+}
+
+export interface DocumentDetail extends DocumentSummary {
+  notes: string | null;
+  tags: string[];
+  acknowledged_by: string | null;
+  returned_by: string | null;
+  first_viewed_by: string | null;
+  versions: { id: number; number: number; reason: string | null; created_at: string; current: boolean }[];
+  forwards?: { id: number; cluster_id: number; note: string | null; by: string | null; at: string; revoked_at: string | null }[];
+}
+
+export interface AccessEvent {
+  action: string;
+  by: string;
+  role: Role;
+  at: string;
+}
+
+export interface SupervisorDashboard {
+  counts: Partial<Record<DocumentStatus, number>>;
+  returned: DocumentSummary[];
+  coverage: { report: ReportRef; schools: { id: number; code: string; name: string; covered: boolean }[] }[];
+  per_month: { month: string; count: number }[];
+  access_history: (AccessEvent & { document_id: number; title?: string })[];
+}
+
+export interface UploadedFile {
+  id: number;
+  name: string;
+  mime_type: string;
+  size: number;
+  pages: number | null;
+  sha256: string;
+  status: "pending" | "clean" | "quarantined" | string;
+  created_at: string;
+}
+
+export interface NotificationItem {
+  id: number;
+  type: string;
+  payload: Record<string, unknown>;
+  text: Bilingual;
+  read: boolean;
+  created_at: string;
+}
+
+export interface NotificationPreference {
+  type: string;
+  in_app: boolean;
+  email: boolean;
+}

@@ -255,7 +255,8 @@ def catalog(db: Session, principal: Principal) -> list[dict[str, Any]]:
             for mrv, form in versions
             if builders or form.status == "published"
         ]
-        if shown:
+        # Builders see a new report before its first version, so they can add one.
+        if shown or builders:
             out.append(
                 {
                     "id": report.id,

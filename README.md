@@ -21,7 +21,7 @@ no other supervisor can see.
 |---|---|
 | `backend/` | FastAPI service, worker and CLI (Python 3.13, SQLAlchemy, Alembic, MySQL 8) |
 | `frontend/` | React and TypeScript web app (Vite, TanStack Query, i18next), English and Arabic |
-| `e2e/` | Browser smoke test and PWA check, run before each release |
+| `e2e/` | Browser smoke test, PWA check and Phase 2 browser test, run before each release |
 | `deploy/` | Backup and restore scripts |
 | `docker-compose.yml` | Production stack: MySQL, migrations, API, worker, ClamAV, Caddy web server |
 

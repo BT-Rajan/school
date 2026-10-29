@@ -4,13 +4,22 @@ import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom"
 
 import { LanguageSwitch } from "./components";
 import Account from "./pages/Account";
+import Assignments from "./pages/Assignments";
 import Clusters from "./pages/Clusters";
 import CustomFields from "./pages/CustomFields";
+import Dashboard from "./pages/Dashboard";
+import EvaluationPage from "./pages/EvaluationPage";
+import Evaluations from "./pages/Evaluations";
+import FormEditor from "./pages/FormEditor";
+import Forms from "./pages/Forms";
 import Home from "./pages/Home";
 import Imports from "./pages/Imports";
 import Invitation from "./pages/Invitation";
 import Login from "./pages/Login";
+import Notifications, { useInbox } from "./pages/Notifications";
 import ReferenceLists from "./pages/ReferenceLists";
+import ReportPage from "./pages/ReportPage";
+import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Schools from "./pages/Schools";
 import Settings from "./pages/Settings";
@@ -22,9 +31,17 @@ import type { Role } from "./types";
 
 const ADMIN: Role[] = ["district_admin"];
 const MANAGERS: Role[] = ["district_admin", "cluster_head"];
+const FORM_BUILDERS: Role[] = ["district_admin", "form_author"];
+const FIELD: Role[] = ["district_admin", "cluster_head", "supervisor"];
+const SUPERVISOR: Role[] = ["supervisor"];
 
 const NAV: { to: string; key: string; roles?: Role[] }[] = [
   { to: "/", key: "nav.home" },
+  { to: "/dashboard", key: "nav.dashboard", roles: SUPERVISOR },
+  { to: "/reports", key: "nav.reports", roles: FIELD },
+  { to: "/evaluations", key: "nav.evaluations", roles: FIELD },
+  { to: "/assignments", key: "nav.assignments", roles: MANAGERS },
+  { to: "/forms", key: "nav.forms", roles: FORM_BUILDERS },
   { to: "/clusters", key: "nav.clusters", roles: MANAGERS },
   { to: "/schools", key: "nav.schools", roles: MANAGERS },
   { to: "/teachers", key: "nav.teachers", roles: MANAGERS },
@@ -40,6 +57,8 @@ const NAV: { to: string; key: string; roles?: Role[] }[] = [
 function Shell({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const { me, district, signOut } = useSession();
+  const inbox = useInbox(!!me);
+  const unread = inbox.data?.unread ?? 0;
   return (
     <>
       <a className="skip-link" href="#main">
@@ -53,6 +72,9 @@ function Shell({ children }: { children: ReactNode }) {
         <LanguageSwitch />
         {me && (
           <>
+            <NavLink to="/notifications" className="bell" aria-label={t("notifications.unread", { count: unread })}>
+              🔔{unread > 0 && <span className="bell-count">{unread > 99 ? "99+" : unread}</span>}
+            </NavLink>
             <span>
               {me.name} · {t(`roles.${me.role}`)}
             </span>
@@ -104,6 +126,15 @@ export default function App() {
         <Route path="/reference" element={<Protected roles={ADMIN}><ReferenceLists /></Protected>} />
         <Route path="/custom-fields" element={<Protected roles={ADMIN}><CustomFields /></Protected>} />
         <Route path="/settings" element={<Protected roles={ADMIN}><Settings /></Protected>} />
+        <Route path="/assignments" element={<Protected roles={MANAGERS}><Assignments /></Protected>} />
+        <Route path="/forms" element={<Protected roles={FORM_BUILDERS}><Forms /></Protected>} />
+        <Route path="/forms/:id" element={<Protected roles={FORM_BUILDERS}><FormEditor /></Protected>} />
+        <Route path="/evaluations" element={<Protected roles={FIELD}><Evaluations /></Protected>} />
+        <Route path="/evaluations/:id" element={<Protected roles={FIELD}><EvaluationPage /></Protected>} />
+        <Route path="/reports" element={<Protected roles={FIELD}><Reports /></Protected>} />
+        <Route path="/reports/:id" element={<Protected roles={FIELD}><ReportPage /></Protected>} />
+        <Route path="/dashboard" element={<Protected roles={SUPERVISOR}><Dashboard /></Protected>} />
+        <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Shell>

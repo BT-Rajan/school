@@ -3,8 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "./api";
 import type { Cluster, CustomField, Page, ReferenceValue, School, StaffUser } from "./types";
 
-export function useClusters() {
-  return useQuery({ queryKey: ["clusters"], queryFn: () => api<Cluster[]>("/api/clusters") });
+export function useClusters(enabled = true) {
+  return useQuery({ queryKey: ["clusters"], queryFn: () => api<Cluster[]>("/api/clusters"), enabled });
 }
 
 export function useReference(list: "designation" | "subject" | "class" | "qualification") {
