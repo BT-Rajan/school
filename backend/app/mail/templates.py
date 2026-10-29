@@ -1,5 +1,6 @@
 """Bilingual email templates (FR-I9). Emails go out in the recipient's language."""
 
+import re
 from dataclasses import dataclass
 from html import escape
 from typing import Any
@@ -125,6 +126,10 @@ TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
             "الملفات المرفوعة في الانتظار لأنه يتعذر الوصول إلى فاحص الفيروسات. تحقق من خدمة clamav.",
         ),
     },
+    "notice_wrapper": {
+        "en": ("{line}", "{line}\n\nOpen the School Cluster Evaluation System for details."),
+        "ar": ("{line}", "{line}\n\nافتح نظام تقييم المجمعات المدرسية للاطلاع على التفاصيل."),
+    },
     "digest": {
         "en": ("Your daily summary", "Here is what happened today:\n\n{items}"),
         "ar": ("ملخصك اليومي", "إليك ما حدث اليوم:\n\n{items}"),
@@ -132,7 +137,79 @@ TEMPLATES: dict[str, dict[str, tuple[str, str]]] = {
 }
 
 
+# In-app notice types and their one-line text, used for emails and the daily digest.
+NOTICES: dict[str, dict[str, str]] = {
+    "assignment_started": {
+        "en": "You are assigned to {school} ({school_code}) from {date}.",
+        "ar": "تم إسنادك إلى {school} ({school_code}) اعتبارًا من {date}.",
+    },
+    "assignment_ended": {
+        "en": "Your assignment to {school} ({school_code}) ends on {date}.",
+        "ar": "ينتهي إسنادك إلى {school} ({school_code}) بتاريخ {date}.",
+    },
+    "form_submitted_for_review": {
+        "en": "Form {report_code} version {version_code} is ready for your review.",
+        "ar": "النموذج {report_code} الإصدار {version_code} جاهز لمراجعتك.",
+    },
+    "form_returned": {
+        "en": "Form {report_code} version {version_code} was returned with comments.",
+        "ar": "أُعيد النموذج {report_code} الإصدار {version_code} مع ملاحظات.",
+    },
+    "form_published": {
+        "en": "Form {report_code} version {version_code} is open from {start} to {end}.",
+        "ar": "النموذج {report_code} الإصدار {version_code} متاح من {start} إلى {end}.",
+    },
+    "form_window_changed": {
+        "en": "Form {report_code} version {version_code} now closes on {end}.",
+        "ar": "يُغلق النموذج {report_code} الإصدار {version_code} الآن بتاريخ {end}.",
+    },
+    "report_submitted": {
+        "en": "New report {report_code} for {school} from {supervisor}.",
+        "ar": "تقرير جديد {report_code} لمدرسة {school} من {supervisor}.",
+    },
+    "report_withdrawn": {
+        "en": "Report {report_code} for {school} was withdrawn by {supervisor}.",
+        "ar": "سحب {supervisor} التقرير {report_code} لمدرسة {school}.",
+    },
+    "report_acknowledged": {
+        "en": "Your report {report_code} for {school} was acknowledged.",
+        "ar": "تم اعتماد تقريرك {report_code} لمدرسة {school}.",
+    },
+    "report_returned": {
+        "en": "Your report {report_code} for {school} was returned: {comment}",
+        "ar": "أُعيد تقريرك {report_code} لمدرسة {school}: {comment}",
+    },
+    "report_forwarded": {
+        "en": "Report {report_code} for {school} was shared with you.",
+        "ar": "تمت مشاركة التقرير {report_code} لمدرسة {school} معك.",
+    },
+}
+
+
+class _Blank(dict):
+    def __missing__(self, key: str) -> str:
+        return ""
+
+
+_ISO_DATE = re.compile(r"^(\d{4})-(\d{2})-(\d{2})$")
+
+
+def district_date(value: Any) -> Any:
+    """ISO dates are shown as D/MM/YYYY in both languages (FR-PB2, FR-I5)."""
+    match = _ISO_DATE.match(value) if isinstance(value, str) else None
+    return f"{int(match[3])}/{match[2]}/{match[1]}" if match else value
+
+
+def notice_text(type_: str, locale: str, params: dict[str, Any]) -> str:
+    texts = NOTICES[type_]
+    shown = {k: district_date(v) for k, v in params.items()}
+    return (texts.get(locale) or texts["en"]).format_map(_Blank(shown))
+
+
 def render(template: str, locale: str, context: dict[str, Any]) -> Rendered:
+    if template == "notice":
+        line = notice_text(context["type"], locale, context.get("params") or {})
+        return render("notice_wrapper", locale, {"line": line})
     variants = TEMPLATES[template]
     subject_tpl, body_tpl = variants.get(locale) or variants["en"]
     if template == "digest":

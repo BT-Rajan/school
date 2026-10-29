@@ -1,3 +1,4 @@
+from app.models.assignments import SupervisorAssignment
 from app.models.audit import AuditChainHead, AuditLog, AuditVerification
 from app.models.auth import AuthChallenge, Invitation, RateLimitEvent, RecoveryCode, UserSession
 from app.models.district import District
@@ -14,6 +15,7 @@ from app.models.enums import (
 from app.models.files import StoredFile
 from app.models.jobs import ImportBatch, Job
 from app.models.mail import MailDailyUsage, MailMessage
+from app.models.notifications import Notification, NotificationPreference
 from app.models.structure import (
     Cluster,
     CustomFieldDefinition,
@@ -49,6 +51,8 @@ __all__ = [
     "MailPriority",
     "MailStatus",
     "MfaMethod",
+    "Notification",
+    "NotificationPreference",
     "RateLimitEvent",
     "RecoveryCode",
     "ReferenceValue",
@@ -57,6 +61,7 @@ __all__ = [
     "StoredFile",
     "SchoolContact",
     "Supervisor",
+    "SupervisorAssignment",
     "SupervisorClusterMove",
     "Teacher",
     "TeacherClass",

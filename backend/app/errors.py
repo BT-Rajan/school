@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi import Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
@@ -33,7 +34,8 @@ def invalid(code: str, detail: Any = None) -> AppError:
 async def app_error_handler(_: Request, exc: AppError) -> JSONResponse:
     body: dict[str, Any] = {"code": exc.code}
     if exc.detail is not None:
-        body["detail"] = exc.detail
+        # Details can hold dates and datetimes, for example the current state in a 409.
+        body["detail"] = jsonable_encoder(exc.detail)
     return JSONResponse({"error": body}, status_code=exc.status, headers=exc.headers)
 
 
@@ -43,3 +45,8 @@ async def validation_error_handler(_: Request, exc: RequestValidationError) -> J
         for err in exc.errors()
     ]
     return JSONResponse({"error": {"code": "validation_failed", "detail": fields}}, status_code=422)
+
+
+async def stale_data_handler(_: Request, __: Exception) -> JSONResponse:
+    """A concurrent change won the race on a versioned row (FR-AS7). The client reloads and retries."""
+    return JSONResponse({"error": {"code": "version_conflict"}}, status_code=409)

@@ -7,6 +7,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import clock
+from app.assignments import queries as assignment_queries
 from app.audit import service as audit
 from app.auth import service as auth
 from app.auth.deps import Principal
@@ -185,7 +186,12 @@ def deactivate_user(db: Session, principal: Principal, user_id: int) -> User:
         teacher.status = EntityStatus.INACTIVE
         _end_contact_if_teacher(db, teacher, "teacher_deactivated")
     if user.role == Role.SUPERVISOR:
-        # FR-P3: blocked while active assignments exist, enforced once assignments arrive in Phase 2.
+        # FR-P3: blocked while the supervisor has current or upcoming assignments.
+        supervisor = db.execute(select(Supervisor).where(Supervisor.user_id == user.id)).scalar_one()
+        today = clock.local_date(get_district(db).time_zone)
+        open_assignments = assignment_queries.open_count(db, today, supervisor_id=supervisor.id)
+        if open_assignments:
+            raise AppError(409, "supervisor_has_assignments", {"count": open_assignments})
         db.execute(update(Supervisor).where(Supervisor.user_id == user.id).values(status=EntityStatus.INACTIVE))
     user.status = UserStatus.INACTIVE
     auth.revoke_sessions(db, user.id, "deactivated")
@@ -369,11 +375,23 @@ def create_teacher(
     return teacher
 
 
+def _supervisor_school_ids(db: Session, principal: Principal) -> set[int]:
+    """Supervisors see the teachers of the schools assigned to them today."""
+    supervisor = assignment_queries.supervisor_for_user(db, principal.user.id)
+    if supervisor is None:
+        return set()
+    return assignment_queries.school_ids_for_supervisor(db, supervisor.id, clock.local_date(get_district(db).time_zone))
+
+
 def get_teacher(db: Session, principal: Principal, teacher_id: int) -> Teacher:
     teacher = db.get(Teacher, teacher_id)
     if teacher is None:
         raise not_found()
     if principal.role == Role.TEACHER and teacher.user_id == principal.user.id:
+        return teacher
+    if principal.role == Role.SUPERVISOR:
+        if teacher.school_id not in _supervisor_school_ids(db, principal):
+            deny(db, "teacher", teacher_id)
         return teacher
     if principal.role not in (Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD):
         deny(db, "teacher", teacher_id)
@@ -386,7 +404,7 @@ def update_teacher(
     db: Session, principal: Principal, teacher_id: int, body: TeacherUpdate, *, commit: bool = True
 ) -> Teacher:
     teacher = get_teacher(db, principal, teacher_id)
-    if principal.role == Role.TEACHER:
+    if principal.role not in (Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD):
         deny(db, "teacher", teacher_id)
     user = db.get(User, teacher.user_id)
     check_version(body.version, teacher.version, teacher_out(db, teacher, user))
@@ -423,7 +441,7 @@ def update_teacher(
 def transfer_teacher(db: Session, principal: Principal, teacher_id: int, body: TransferIn) -> Teacher:
     """Move a teacher to another school in the same cluster (FR-T3)."""
     teacher = get_teacher(db, principal, teacher_id)
-    if principal.role == Role.TEACHER:
+    if principal.role not in (Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD):
         deny(db, "teacher", teacher_id)
     if teacher.status != EntityStatus.ACTIVE:
         raise invalid("teacher_inactive")
@@ -486,7 +504,7 @@ def list_teachers(
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
-    if principal.role not in (Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD):
+    if principal.role not in (Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD, Role.SUPERVISOR):
         deny(db, "teacher", None)
     query = (
         select(Teacher, User)
@@ -494,9 +512,12 @@ def list_teachers(
         .join(School, School.id == Teacher.school_id)
         .order_by(User.name_search, Teacher.id)
     )
-    allowed = managed_cluster_ids(db, principal)
-    if allowed is not None:
-        query = query.where(School.cluster_id.in_(allowed))
+    if principal.role == Role.SUPERVISOR:
+        query = query.where(Teacher.school_id.in_(_supervisor_school_ids(db, principal)))
+    else:
+        allowed = managed_cluster_ids(db, principal)
+        if allowed is not None:
+            query = query.where(School.cluster_id.in_(allowed))
     if q:
         query = query.where(User.name_search.like(like_pattern(q)) | User.staff_id.like(f"%{q.strip()}%"))
     if status:
@@ -618,7 +639,12 @@ def move_supervisor(db: Session, principal: Principal, supervisor_id: int, clust
     target = _usable_cluster(db, principal, cluster_id)
     if target.id == supervisor.cluster_id:
         raise invalid("same_cluster")
-    # Ending old-cluster assignments first is enforced once assignments exist in Phase 2.
+    # FR-P5: the old cluster's assignments must end first.
+    open_assignments = assignment_queries.open_count(
+        db, clock.local_date(get_district(db).time_zone), supervisor_id=supervisor.id
+    )
+    if open_assignments:
+        raise AppError(409, "supervisor_has_assignments", {"count": open_assignments})
     source_id = supervisor.cluster_id
     supervisor.cluster_id = target.id
     db.add(

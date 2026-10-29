@@ -248,8 +248,9 @@ ROLES = [Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD, Role.SUPERVISOR, Role.TEACHER, 
 MATRIX = [
     ("GET", "/api/clusters", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD}),
     ("POST", "/api/clusters", {Role.DISTRICT_ADMIN}),
-    ("GET", "/api/schools", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD}),
-    ("GET", "/api/teachers", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD}),
+    # Supervisors list only the schools assigned to them, and those schools' teachers.
+    ("GET", "/api/schools", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD, Role.SUPERVISOR}),
+    ("GET", "/api/teachers", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD, Role.SUPERVISOR}),
     ("GET", "/api/supervisors", {Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD}),
     ("GET", "/api/admins", {Role.DISTRICT_ADMIN}),
     ("POST", "/api/admins", {Role.DISTRICT_ADMIN}),

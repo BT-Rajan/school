@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import clock
+from app.assignments import queries as assignment_queries
 from app.audit import service as audit
 from app.auth.deps import Principal
 from app.district import get_district
@@ -200,10 +201,16 @@ def _school_fields(school: School) -> dict[str, Any]:
     }
 
 
-def get_school(db: Session, principal: Principal, school_id: int) -> School:
+def get_school(db: Session, principal: Principal, school_id: int, *, write: bool = False) -> School:
     school = db.get(School, school_id)
     if school is None:
         raise not_found()
+    if principal.role == Role.SUPERVISOR and not write:
+        # Supervisors may read schools they are or were assigned to.
+        supervisor = assignment_queries.supervisor_for_user(db, principal.user.id)
+        if supervisor is None or school.id not in assignment_queries.school_ids_for_supervisor(db, supervisor.id):
+            deny(db, "school", school_id)
+        return school
     ensure_cluster_in_scope(db, principal, school.cluster_id, entity="school", entity_id=school_id)
     return school
 
@@ -219,9 +226,16 @@ def list_schools(
     page_size: int = 50,
 ) -> dict[str, Any]:
     query = select(School, Cluster).join(Cluster, Cluster.id == School.cluster_id).order_by(School.code)
-    allowed = managed_cluster_ids(db, principal)
-    if allowed is not None:
-        query = query.where(School.cluster_id.in_(allowed))
+    if principal.role == Role.SUPERVISOR:
+        # A supervisor's list is the schools assigned to them today.
+        supervisor = assignment_queries.supervisor_for_user(db, principal.user.id)
+        today = clock.local_date(get_district(db).time_zone)
+        ids = assignment_queries.school_ids_for_supervisor(db, supervisor.id, today) if supervisor else set()
+        query = query.where(School.id.in_(ids))
+    else:
+        allowed = managed_cluster_ids(db, principal)
+        if allowed is not None:
+            query = query.where(School.cluster_id.in_(allowed))
     if q:
         pattern = like_pattern(q)
         query = query.where(School.name_search.like(pattern) | School.code.like(f"%{q.strip()}%"))
@@ -279,7 +293,7 @@ def create_school(db: Session, principal: Principal, body: SchoolIn, *, commit: 
 def update_school(
     db: Session, principal: Principal, school_id: int, body: SchoolUpdate, *, commit: bool = True
 ) -> School:
-    school = get_school(db, principal, school_id)
+    school = get_school(db, principal, school_id, write=True)
     check_version(body.version, school.version, school_out(db, school))
     before = _school_fields(school)
     for field in ("name", "address", "school_type", "medium", "contact_phone"):
@@ -309,10 +323,15 @@ def update_school(
 
 
 def set_school_status(db: Session, principal: Principal, school_id: int, status: EntityStatus) -> School:
-    school = get_school(db, principal, school_id)
+    school = get_school(db, principal, school_id, write=True)
     if status == EntityStatus.ACTIVE:
         _ensure_cluster_usable(db, principal, school.cluster_id)
-    # FR-S7 (no deactivation with active assignments) is enforced once assignments exist in Phase 2.
+    else:
+        # FR-S7: end or move the school's assignments first.
+        today = clock.local_date(get_district(db).time_zone)
+        open_assignments = assignment_queries.open_count(db, today, school_id=school.id)
+        if open_assignments:
+            raise AppError(409, "school_has_assignments", {"count": open_assignments})
     school.status = status
     db.flush()
     audit.record(
@@ -352,7 +371,7 @@ def end_contact(db: Session, school_id: int, reason: str) -> None:
 
 def set_contact_teacher(db: Session, principal: Principal, school_id: int, teacher_id: int) -> School:
     """Designate the school's contact teacher (FR-S6). One at a time."""
-    school = get_school(db, principal, school_id)
+    school = get_school(db, principal, school_id, write=True)
     teacher = db.get(Teacher, teacher_id)
     if teacher is None or teacher.school_id != school.id or teacher.status != EntityStatus.ACTIVE:
         raise invalid("teacher_not_at_school")

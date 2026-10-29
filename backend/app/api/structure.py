@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
-from app.auth.deps import Principal, admin_only, current_principal, structure_managers
+from app.auth.deps import Principal, admin_only, current_principal, require_roles, structure_managers
 from app.db import get_db
-from app.models import EntityStatus
+from app.models import EntityStatus, Role
 from app.structure import people, service
 from app.structure.schemas import (
     ClusterIn,
@@ -20,6 +20,8 @@ from app.structure.schemas import (
 )
 
 router = APIRouter(prefix="/api", tags=["structure"])
+# Supervisors may read the schools and teachers assigned to them; services scope the results.
+readers = require_roles(Role.DISTRICT_ADMIN, Role.CLUSTER_HEAD, Role.SUPERVISOR)
 
 
 # Clusters
@@ -68,7 +70,7 @@ def list_schools(
     cluster_id: int | None = None,
     page: int = 1,
     page_size: int = 50,
-    principal: Principal = Depends(structure_managers),
+    principal: Principal = Depends(readers),
     db: Session = Depends(get_db),
 ):
     return service.list_schools(
@@ -82,7 +84,7 @@ def create_school(body: SchoolIn, principal: Principal = Depends(structure_manag
 
 
 @router.get("/schools/{school_id}")
-def get_school(school_id: int, principal: Principal = Depends(structure_managers), db: Session = Depends(get_db)):
+def get_school(school_id: int, principal: Principal = Depends(readers), db: Session = Depends(get_db)):
     return service.school_out(db, service.get_school(db, principal, school_id))
 
 
@@ -133,7 +135,7 @@ def list_teachers(
     cluster_id: int | None = None,
     page: int = 1,
     page_size: int = 50,
-    principal: Principal = Depends(structure_managers),
+    principal: Principal = Depends(readers),
     db: Session = Depends(get_db),
 ):
     return people.list_teachers(

@@ -4,13 +4,14 @@ import uuid
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.orm.exc import StaleDataError
 
 from app import context
-from app.api import auth, files, imports, reference, structure, system, users
+from app.api import assignments, auth, files, imports, notifications, reference, structure, system, users
 from app.auth.deps import SESSION_COOKIE
 from app.auth.rate_limit import api_limiter
 from app.config import get_settings
-from app.errors import AppError, app_error_handler, validation_error_handler
+from app.errors import AppError, app_error_handler, stale_data_handler, validation_error_handler
 from app.logging_setup import configure_logging
 from app.security import tokens
 
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     )
     app.add_exception_handler(AppError, app_error_handler)
     app.add_exception_handler(RequestValidationError, validation_error_handler)
+    app.add_exception_handler(StaleDataError, stale_data_handler)
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
@@ -66,7 +68,7 @@ def create_app() -> FastAPI:
             response.headers.setdefault("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
         return response
 
-    for module in (system, auth, users, structure, reference, imports, files):
+    for module in (system, auth, users, structure, reference, imports, files, assignments, notifications):
         app.include_router(module.router)
     return app
 
