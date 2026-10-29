@@ -86,6 +86,11 @@ def verify_audit(_args) -> None:
 def generate_keys(_args) -> None:
     print(f"SCES_SECRET_KEY={tokens.new_token()}{tokens.new_token()}")
     print(f"SCES_ENCRYPTION_KEY={crypto.generate_key()}")
+    from app.push.service import generate_vapid_keys
+
+    public, private = generate_vapid_keys()
+    print(f"SCES_VAPID_PUBLIC_KEY={public}")
+    print(f"SCES_VAPID_PRIVATE_KEY={private}")
 
 
 def grants_sql(args) -> None:

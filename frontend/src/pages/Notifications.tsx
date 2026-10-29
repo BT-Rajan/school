@@ -1,10 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 
 import { api } from "../api";
 import { ErrorMessage, PageHeader, useAction } from "../components";
 import { formatDateTime } from "../format";
+import { currentSubscription, disablePush, enablePush, pushSupported, serverKey } from "../push";
 import { useSession } from "../session";
 import type { NotificationItem, NotificationPreference, Role } from "../types";
 
@@ -57,11 +59,14 @@ export default function Notifications() {
     await api("/api/notifications/read-all", { method: "POST" });
     await refresh();
   });
-  const setPref = useAction(async (type: string, channel: "in_app" | "email", enabled: boolean) => {
+  const setPref = useAction(async (type: string, channel: "in_app" | "email" | "push", enabled: boolean) => {
     await api("/api/notifications/preferences", { method: "PUT", body: { type, channel, enabled } });
     await client.invalidateQueries({ queryKey: ["notification-preferences"] });
   });
   const lang = i18n.language === "ar" ? "ar" : "en";
+  const key = useQuery({ queryKey: ["push-key"], queryFn: serverKey, enabled: pushSupported(), staleTime: Infinity });
+  const channels: ("in_app" | "email" | "push")[] = key.data ? ["in_app", "email", "push"] : ["in_app", "email"];
+  const channelLabel = { in_app: t("notifications.inApp"), email: t("notifications.email"), push: t("notifications.push") };
   return (
     <>
       <PageHeader title={t("notifications.title")}>
@@ -86,6 +91,8 @@ export default function Notifications() {
       </ul>
       {inbox.data?.items.length === 0 && <p className="hint">{t("notifications.empty")}</p>}
 
+      {key.data && <DevicePush publicKey={key.data} />}
+
       <div className="card">
         <h2>{t("notifications.preferences")}</h2>
         <p className="hint">{t("notifications.preferencesHint")}</p>
@@ -95,18 +102,17 @@ export default function Notifications() {
             <thead>
               <tr>
                 <th>{t("notifications.type")}</th>
-                <th>{t("notifications.inApp")}</th>
-                <th>{t("notifications.email")}</th>
+                {channels.map((c) => <th key={c}>{channelLabel[c]}</th>)}
               </tr>
             </thead>
             <tbody>
               {prefs.data?.map((p) => (
                 <tr key={p.type}>
                   <td>{t(`notifications.types.${p.type}`, { defaultValue: p.type })}</td>
-                  {(["in_app", "email"] as const).map((channel) => (
+                  {channels.map((channel) => (
                     <td key={channel}>
                       <input type="checkbox" checked={p[channel]} disabled={setPref.busy}
-                        aria-label={`${t(`notifications.types.${p.type}`, { defaultValue: p.type })}: ${t(channel === "in_app" ? "notifications.inApp" : "notifications.email")}`}
+                        aria-label={`${t(`notifications.types.${p.type}`, { defaultValue: p.type })}: ${channelLabel[channel]}`}
                         onChange={(e) => void setPref.run(p.type, channel, e.target.checked)} />
                     </td>
                   ))}
@@ -117,5 +123,29 @@ export default function Notifications() {
         </div>
       </div>
     </>
+  );
+}
+
+/** FR-N3: turn push notices on or off for this browser. */
+function DevicePush({ publicKey }: { publicKey: string }) {
+  const { t } = useTranslation();
+  const subscription = useQuery({ queryKey: ["push-subscription"], queryFn: currentSubscription });
+  const client = useQueryClient();
+  const [denied, setDenied] = useState(false);
+  const toggle = useAction(async () => {
+    if (subscription.data) await disablePush();
+    else setDenied(!(await enablePush(publicKey)));
+    await client.invalidateQueries({ queryKey: ["push-subscription"] });
+  });
+  return (
+    <div className="card">
+      <h2>{t("notifications.device")}</h2>
+      <p className="hint">{subscription.data ? t("notifications.pushOn") : t("notifications.pushOff")}</p>
+      <button type="button" disabled={toggle.busy || subscription.isLoading} onClick={() => void toggle.run()}>
+        {subscription.data ? t("notifications.turnOff") : t("notifications.turnOn")}
+      </button>
+      {denied && <p className="field-error">{t("notifications.pushDenied")}</p>}
+      <ErrorMessage error={toggle.error} />
+    </div>
   );
 }

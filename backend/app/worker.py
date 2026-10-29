@@ -19,6 +19,7 @@ from app.errors import AppError
 from app.files import service as files
 from app.mail import queue as mail
 from app.models import Job
+from app.push import service as push
 from app.requests import service as requests
 
 log = logging.getLogger(__name__)
@@ -81,6 +82,7 @@ def run_forever() -> None:
             with session_factory()() as db:
                 mail.dispatch(db)
                 files.scan_pending(db)
+                push.dispatch(db)
                 if time.monotonic() - last_housekeeping > HOUSEKEEPING_INTERVAL_SECONDS:
                     housekeeping(db)
                     last_housekeeping = time.monotonic()

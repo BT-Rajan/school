@@ -19,6 +19,7 @@ from app.models.forms import FormReviewComment, FormVersion, MinistryReport, Min
 from app.models.jobs import ImportBatch, Job
 from app.models.mail import MailDailyUsage, MailMessage
 from app.models.notifications import Notification, NotificationPreference
+from app.models.push import PushMessage, PushSubscription
 from app.models.requests import TeacherRequest
 from app.models.structure import (
     Cluster,
@@ -67,6 +68,8 @@ __all__ = [
     "MinistryReportVersion",
     "Notification",
     "NotificationPreference",
+    "PushMessage",
+    "PushSubscription",
     "RateLimitEvent",
     "RecoveryCode",
     "ReferenceValue",

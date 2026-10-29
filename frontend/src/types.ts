@@ -369,6 +369,7 @@ export interface NotificationPreference {
   type: string;
   in_app: boolean;
   email: boolean;
+  push: boolean;
 }
 
 export interface TeacherRequestSummary {

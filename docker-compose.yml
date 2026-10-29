@@ -21,6 +21,10 @@ x-backend-env: &backend-env
   SCES_SMTP_PASSWORD: ${SCES_SMTP_PASSWORD:-}
   SCES_STORAGE_PATH: /var/lib/sces/files
   SCES_VIRUS_SCANNER: clamd
+  # Web Push (FR-N3); leave empty to turn it off.
+  SCES_VAPID_PUBLIC_KEY: ${SCES_VAPID_PUBLIC_KEY:-}
+  SCES_VAPID_PRIVATE_KEY: ${SCES_VAPID_PRIVATE_KEY:-}
+  SCES_VAPID_SUBJECT: ${SCES_VAPID_SUBJECT:-mailto:admin@example.org}
   SCES_CLAMD_HOST: clamav
 
 services:

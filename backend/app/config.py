@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # Fails open when the service cannot be reached; the bundled list still applies.
     breached_password_api: bool = False
 
+    # Web Push (FR-N3). VAPID keys from `python -m app.cli generate-keys`; empty turns push off.
+    vapid_public_key: str = ""
+    vapid_private_key: str = ""
+    vapid_subject: str = "mailto:admin@example.org"
+
     # Largest request bodies accepted (section 15): uploads, and everything else.
     # The upload limit must stay above the district's upload_max_mb setting.
     max_upload_request_mb: int = 60

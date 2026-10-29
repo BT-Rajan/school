@@ -337,6 +337,10 @@ def complete_login(db: Session, token: str, code: str | None, recovery_code: str
 def logout(db: Session, session: UserSession, user: User) -> None:
     session.revoked_at = clock.now()
     session.revoke_reason = "logout"
+    # A shared phone stops showing this person's notices (FR-PW12).
+    from app.push import service as push
+
+    push.forget_session(db, session.id)
     _audit_user(db, "logout", user)
     db.commit()
 

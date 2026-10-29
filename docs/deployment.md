@@ -151,6 +151,21 @@ docker compose exec api python -m app.cli verify-files --sample 50
 `verify-files` decrypts each sampled file and compares it with its recorded
 checksum. Without `--sample` it checks every file.
 
+## 5a. Push notifications (optional)
+
+Users can allow notices on their phone or computer from the Notifications page.
+To turn this on, generate a key pair once and put it in `.env`:
+
+```bash
+docker compose run --rm api python -m app.cli generate-keys
+```
+
+Copy `SCES_VAPID_PUBLIC_KEY` and `SCES_VAPID_PRIVATE_KEY` from the output (ignore
+the other keys it prints), set `SCES_VAPID_SUBJECT` to the district's contact
+address, and restart. The server sends only to the browsers' own push services
+(Google, Mozilla, Microsoft, Apple), so outbound HTTPS to them must be allowed.
+Changing the keys means every device has to turn push on again.
+
 ## 6. Files and virus scanning
 
 Uploaded files are stored in the `files-data` volume. Each file is encrypted

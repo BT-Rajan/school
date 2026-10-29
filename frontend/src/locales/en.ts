@@ -657,6 +657,13 @@ const en = {
     perMonth: "Reports sent per month",
   },
   notifications: {
+    push: "Push to this device",
+    device: "Notices on this device",
+    pushOn: "This browser shows notices even when the app is closed. Signing out turns this off.",
+    pushOff: "Get notices on this phone or computer even when the app is closed.",
+    turnOn: "Turn on",
+    turnOff: "Turn off",
+    pushDenied: "The browser blocked notifications. Allow them in the browser's site settings, then try again.",
     title: "Notifications",
     unread: "Notifications, unread: {{count}}",
     markRead: "Mark as read",
