@@ -19,6 +19,8 @@ import Login from "./pages/Login";
 import Notifications, { useInbox } from "./pages/Notifications";
 import ReferenceLists from "./pages/ReferenceLists";
 import ReportPage from "./pages/ReportPage";
+import RequestPage from "./pages/RequestPage";
+import Requests from "./pages/Requests";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Schools from "./pages/Schools";
@@ -34,12 +36,16 @@ const MANAGERS: Role[] = ["district_admin", "cluster_head"];
 const FORM_BUILDERS: Role[] = ["district_admin", "form_author"];
 const FIELD: Role[] = ["district_admin", "cluster_head", "supervisor"];
 const SUPERVISOR: Role[] = ["supervisor"];
+const REQUESTS: Role[] = ["district_admin", "cluster_head", "supervisor", "teacher"];
+const TEACHER: Role[] = ["teacher"];
 
 const NAV: { to: string; key: string; roles?: Role[] }[] = [
   { to: "/", key: "nav.home" },
   { to: "/dashboard", key: "nav.dashboard", roles: SUPERVISOR },
   { to: "/reports", key: "nav.reports", roles: FIELD },
   { to: "/evaluations", key: "nav.evaluations", roles: FIELD },
+  { to: "/requests", key: "nav.requests", roles: FIELD },
+  { to: "/requests", key: "nav.myRequests", roles: TEACHER },
   { to: "/assignments", key: "nav.assignments", roles: MANAGERS },
   { to: "/forms", key: "nav.forms", roles: FORM_BUILDERS },
   { to: "/clusters", key: "nav.clusters", roles: MANAGERS },
@@ -133,6 +139,8 @@ export default function App() {
         <Route path="/evaluations/:id" element={<Protected roles={FIELD}><EvaluationPage /></Protected>} />
         <Route path="/reports" element={<Protected roles={FIELD}><Reports /></Protected>} />
         <Route path="/reports/:id" element={<Protected roles={FIELD}><ReportPage /></Protected>} />
+        <Route path="/requests" element={<Protected roles={REQUESTS}><Requests /></Protected>} />
+        <Route path="/requests/:id" element={<Protected roles={REQUESTS}><RequestPage /></Protected>} />
         <Route path="/dashboard" element={<Protected roles={SUPERVISOR}><Dashboard /></Protected>} />
         <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />

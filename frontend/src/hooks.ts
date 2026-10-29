@@ -24,9 +24,10 @@ export function useClusterHeads(enabled: boolean) {
 }
 
 /** Every active school in scope, for pickers. Fetched page by page (at most 200 per page). */
-export function useAllSchools() {
+export function useAllSchools(enabled = true) {
   return useQuery({
     queryKey: ["schools", "all-active"],
+    enabled,
     queryFn: async () => {
       const all: School[] = [];
       for (let page = 1; ; page++) {

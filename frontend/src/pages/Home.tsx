@@ -24,8 +24,9 @@ const SHORTCUTS: Record<Role, { to: string; key: string }[]> = {
     { to: "/dashboard", key: "nav.dashboard" },
     { to: "/reports", key: "nav.reports" },
     { to: "/evaluations", key: "nav.evaluations" },
+    { to: "/requests", key: "nav.requests" },
   ],
-  teacher: [],
+  teacher: [{ to: "/requests", key: "nav.myRequests" }],
 };
 
 interface AdminStatus {

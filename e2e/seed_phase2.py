@@ -24,7 +24,7 @@ from app.structure.common import fold_search
 PASSWORD = "a long e2e test passphrase"
 
 
-def main() -> None:
+def seed() -> dict:
     if get_settings().environment == "production":
         raise SystemExit("Refusing to seed a production database.")
     out: dict = {"password": PASSWORD, "users": {}}
@@ -109,7 +109,11 @@ def main() -> None:
         for u in (sup_a, sup_b):
             db.add(Supervisor(user_id=u.id, cluster_id=cluster.id))
         db.commit()
-    print(json.dumps(out))
+    return out
+
+
+def main() -> None:
+    print(json.dumps(seed()))
 
 
 if __name__ == "__main__":

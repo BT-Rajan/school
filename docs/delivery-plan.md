@@ -320,6 +320,64 @@ requests.
 
 **Release:** Pilot 1 extended to all teachers in the pilot cluster.
 
+**Status (Oct 29, 2026): built and verified; waiting on the district for the pilot**
+
+Built:
+
+- Teacher sections of evaluations: a School evaluation's go to the school's
+  contact teacher, a Teacher evaluation's to the teacher being evaluated.
+  Teachers see only their sections, save drafts and submit; the requester
+  returns with a comment and the teacher resubmits. Every step is audited and
+  shown as the request's history.
+- An evaluation is submitted only after its teacher sections are submitted or
+  the Cluster Head waives them with a reason. Teacher answers appear on the
+  evaluation and its PDF.
+- Standalone requests on published forms a District Admin approves, sent by
+  admins, Cluster Heads or supervisors within their scope, to a school's
+  contact teacher or to named teachers, with a due date and instructions.
+- Reminders 3 days before the due date, on it, and once overdue, plus the
+  overdue notice to the requester, in the daily digest. Sign-in codes keep
+  their reserved budget.
+- Contact teacher changes and transfers (FR-S6, section 6.1), as below.
+- "My requests" for teachers, a requests list with filters for staff, the
+  teacher's part on each evaluation, the approval switch for admins, and on
+  the Teachers page the onboarding counts and an "invite everyone not yet
+  invited" action spread within the daily invitation cap.
+
+Choices made where the requirements leave room (to confirm with the district):
+
+- Requests addressed to a school's contact teacher follow the role. One not
+  yet started moves to the new contact at once. One already started moves
+  only when the requester confirms, so nobody's half-finished answers change
+  hands unseen. This is how section 6.1's "the supervisor must confirm the
+  link" is implemented.
+- A request to a named teacher stays with them if they transfer, and the
+  requester keeps their view.
+- The Cluster Head may waive teacher sections of Teacher evaluations too, not
+  only School evaluations, so a teacher on leave cannot block one forever.
+- A request's due date defaults to a week, within the form's window; the
+  requester can change it.
+- Requesters see a teacher's answers once submitted, never their drafts.
+
+How it was verified:
+
+- 170 backend tests against MySQL 8, including routing, the return and
+  resubmit cycle, waivers, contact changes with and without confirmation,
+  transfers, cancellation, reminders on each day, and isolation (a teacher
+  gets 404 for another teacher's request and every scanned report).
+- Browser test (`e2e/phase3.cjs`, seeded by `e2e/seed_phase3.py`) through
+  every role's screens, on the development server and on the full Compose
+  stack with HTTPS: routing to the contact teacher, draft, submit, return,
+  resubmit, the evaluation submitted with the teacher's answers and its PDF,
+  isolation, a waiver, a standalone request to two schools with one waiting
+  for a contact teacher, and the teacher's screen in Arabic on a phone.
+
+Waiting on the district:
+
+- The 8 to 10 extra teacher fields (Q3). Custom fields already support them
+  with no code change.
+- Which ministry reports may be sent as standalone requests.
+
 ---
 
 ## Phase 4: Mobile, offline, and realtime

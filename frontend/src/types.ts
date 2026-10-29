@@ -195,6 +195,7 @@ export interface CatalogReport {
   id: number;
   report_code: string;
   subject_type: "school" | "teacher";
+  standalone_allowed: boolean;
   versions: CatalogVersion[];
 }
 
@@ -251,7 +252,21 @@ export interface EvaluationSummary {
   version: number;
 }
 
+export type RequestStatus = "not_started" | "in_progress" | "submitted" | "returned" | "waived" | "cancelled";
+
+export interface EvaluationRequest {
+  id: number;
+  status: RequestStatus;
+  overdue: boolean;
+  due_date: string;
+  teacher: { id: number; name: string } | null;
+  pending_teacher: string | null;
+  return_count: number;
+  close_reason: string | null;
+}
+
 export interface Evaluation extends EvaluationSummary {
+  request: EvaluationRequest | null;
   visit_notes: string | null;
   location: { latitude: number; longitude: number; accuracy_m: number | null } | null;
   cancel_reason: string | null;
@@ -354,4 +369,46 @@ export interface NotificationPreference {
   type: string;
   in_app: boolean;
   email: boolean;
+}
+
+export interface TeacherRequestSummary {
+  id: number;
+  kind: "evaluation" | "standalone";
+  report: { code: string; version_code: string; title_en: string; title_ar: string };
+  school: { id: number; code: string; name: string };
+  teacher: { id: number; name: string } | null;
+  pending_teacher: { id: number; name: string } | null;
+  via_contact: boolean;
+  requester: string;
+  evaluation: { id: number; subject_type: "school" | "teacher"; status: string; about: string | null } | null;
+  status: RequestStatus;
+  overdue: boolean;
+  due_date: string;
+  submitted_at: string | null;
+  returned_at: string | null;
+  return_comment: string | null;
+  return_count: number;
+  closed_at: string | null;
+  close_reason: string | null;
+  version: number;
+  can: { answer: boolean; manage: boolean; waive: boolean };
+}
+
+export interface TeacherRequestDetail extends TeacherRequestSummary {
+  instructions: string | null;
+  sections: import("./forms/schema").Section[];
+  answers: Record<string, Record<string, unknown>>;
+}
+
+export interface RequestEvent {
+  action: string;
+  by: string | null;
+  at: string;
+  detail: Record<string, unknown> | null;
+}
+
+export interface Onboarding {
+  active: number;
+  invited: number;
+  needs_invitation: number;
 }

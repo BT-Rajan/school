@@ -18,8 +18,9 @@ import {
   useAction,
   useRefName,
 } from "../components";
+import { formatDate } from "../format";
 import { useAllSchools, useCustomFields, useReference } from "../hooks";
-import type { CustomValues, Page, Teacher } from "../types";
+import type { CustomValues, Onboarding, Page, Teacher } from "../types";
 
 const PAGE_SIZE = 50;
 
@@ -150,6 +151,7 @@ export default function Teachers() {
       <PageHeader title={t("teachers.title")}>
         <button className="primary" type="button" onClick={() => open("new")}>{t("teachers.new")}</button>
       </PageHeader>
+      <OnboardingCard />
       <div className="filters">
         <input type="search" value={q} placeholder={t("teachers.searchHint")} aria-label={t("common.search")}
           onChange={(e) => { setQ(e.target.value); setPage(1); }} />
@@ -283,5 +285,41 @@ export default function Teachers() {
         </Modal>
       )}
     </>
+  );
+}
+
+/** Phase 3: invite every teacher who has not joined, spread over days within the mail budget (FR-N8). */
+function OnboardingCard() {
+  const { t } = useTranslation();
+  const client = useQueryClient();
+  const status = useQuery({ queryKey: ["teacher-onboarding"], queryFn: () => api<Onboarding>("/api/teachers/onboarding") });
+  const [planned, setPlanned] = useState<{ date: string; count: number }[] | null>(null);
+  const invite = useAction(async () => {
+    const result = await api<{ queued: number; by_day: { date: string; count: number }[] }>("/api/teachers/invitations", {
+      method: "POST",
+      body: {},
+    });
+    setPlanned(result.by_day);
+    await client.invalidateQueries({ queryKey: ["teacher-onboarding"] });
+  });
+  if (!status.data) return null;
+  const s = status.data;
+  return (
+    <div className="card onboarding">
+      <p>{t("teachers.onboarding", { active: s.active, invited: s.invited, waiting: s.needs_invitation })}</p>
+      {s.needs_invitation > 0 && (
+        <button type="button" disabled={invite.busy} onClick={() => void invite.run()}>
+          {t("teachers.inviteWaiting", { count: s.needs_invitation })}
+        </button>
+      )}
+      {planned && planned.length > 0 && (
+        <ul>
+          {planned.map((p) => (
+            <li key={p.date}>{t("teachers.plannedDay", { date: formatDate(p.date), count: p.count })}</li>
+          ))}
+        </ul>
+      )}
+      <ErrorMessage error={invite.error} />
+    </div>
   );
 }

@@ -16,9 +16,15 @@ export default function Forms() {
   const client = useQueryClient();
   const navigate = useNavigate();
   const isAuthor = me?.role === "form_author";
+  const isAdmin = me?.role === "district_admin";
   const catalog = useQuery({ queryKey: ["catalog"], queryFn: () => api<CatalogReport[]>("/api/catalog") });
   const [dialog, setDialog] = useState<{ kind: "report" } | { kind: "version"; report: CatalogReport } | null>(null);
   const [filter, setFilter] = useState("");
+  // FR-R1: a District Admin approves which ministry reports teachers can be asked to answer on their own.
+  const standalone = useAction(async (reportId: number, allowed: boolean) => {
+    await api(`/api/catalog/reports/${reportId}/standalone`, { method: "POST", body: { allowed } });
+    await client.invalidateQueries({ queryKey: ["catalog"] });
+  });
   const openSource = useAction((fileId: number) =>
     openLink(() => api<{ url: string }>(`/api/files/${fileId}/link`, { method: "POST", body: { disposition: "inline" } })),
   );
@@ -40,7 +46,7 @@ export default function Forms() {
         <SelectField label={t("common.status")} value={filter} onChange={setFilter} placeholder={t("common.anyStatus")}
           options={["draft", "in_review", "scheduled", "active", "closed"].map((s) => ({ value: s, label: t(`status.${s}`) }))} />
       </div>
-      <ErrorMessage error={catalog.error ?? openSource.error} />
+      <ErrorMessage error={catalog.error ?? openSource.error ?? standalone.error} />
       {reports.map((r) => (
         <div key={r.id} className="card">
           <div className="page-header">
@@ -50,6 +56,14 @@ export default function Forms() {
             {isAuthor && (
               <button type="button" onClick={() => setDialog({ kind: "version", report: r })}>{t("forms.newVersion")}</button>
             )}
+            {isAdmin && (
+              <label className="check">
+                <input type="checkbox" checked={r.standalone_allowed} disabled={standalone.busy}
+                  onChange={(e) => void standalone.run(r.id, e.target.checked)} />
+                {t("forms.standaloneAllowed")}
+              </label>
+            )}
+            {!isAdmin && r.standalone_allowed && <span className="badge">{t("forms.standaloneBadge")}</span>}
           </div>
           <div className="table-wrap">
             <table>

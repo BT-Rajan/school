@@ -10,6 +10,7 @@ import { type Answers, visibleAnswers } from "../forms/schema";
 import { formatDate, formatDateTime } from "../format";
 import { useSession } from "../session";
 import type { Amendment, DocumentSummary, Evaluation, FormDetail, Problem } from "../types";
+import { RequestStatus } from "./Requests";
 
 type Location = { latitude: number; longitude: number; accuracy_m: number };
 
@@ -84,6 +85,7 @@ export default function EvaluationPage() {
 
   const own = me?.role === "supervisor";
   const sections = (form.data?.schema.sections ?? []).filter((s) => s.respondent === "supervisor");
+  const teacherSections = (form.data?.schema.sections ?? []).filter((s) => s.respondent === "teacher");
   const payload = () => ({
     visit_date: visitDate || null,
     visit_notes: notes || null,
@@ -201,6 +203,31 @@ export default function EvaluationPage() {
             onChange={editing ? (a) => { setAnswers({ ...answers, [s.key]: a }); setDirty(true); } : undefined} />
         </div>
       ))}
+
+      {e.request && (
+        <div className="card">
+          <h2>{t("requests.teacherPart")}</h2>
+          <dl className="facts">
+            <dt>{t("evaluations.teacher")}</dt>
+            <dd>{e.request.teacher?.name ?? t("requests.noTeacher")}</dd>
+            <dt>{t("common.status")}</dt>
+            <dd><RequestStatus r={e.request} /></dd>
+            <dt>{t("requests.due")}</dt>
+            <dd className="ltr">{formatDate(e.request.due_date)}</dd>
+            {e.request.close_reason && (<><dt>{t("common.reason")}</dt><dd dir="auto">{e.request.close_reason}</dd></>)}
+          </dl>
+          {e.status === "draft" && !["submitted", "waived"].includes(e.request.status) && (
+            <p className="hint">{t("requests.evaluationWaits")}</p>
+          )}
+          <p><Link to={`/requests/${e.request.id}`}>{t("requests.open")}</Link></p>
+          {teacherSections.map((s) => {
+            const given = e.sections.find((x) => x.key === s.key);
+            return given && Object.keys(given.answers).length > 0 ? (
+              <SectionView key={s.key} section={s} answers={given.answers} />
+            ) : null;
+          })}
+        </div>
+      )}
 
       {editing && (
         <div className="card sticky-actions">

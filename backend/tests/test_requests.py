@@ -143,6 +143,8 @@ def test_answer_return_resubmit_and_submit_the_evaluation(world):
         f"/api/requests/{request_id}", json={"version": req["version"], "sections": {"self": {"comment": "مسودة"}}}
     ).json()
     assert req["status"] == "in_progress"
+    # The requester does not see drafts.
+    assert get(w["a"], request_id)["answers"] == {}
     req = t1.post(
         f"/api/requests/{request_id}/submit",
         json={"version": req["version"], "sections": {"self": {"comment": "Done"}}},

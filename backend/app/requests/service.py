@@ -213,7 +213,9 @@ def request_out(db: Session, principal: Principal, r: TeacherRequest, *, full: b
         out["instructions"] = r.instructions
         # Only the teacher sections: a teacher never sees the supervisor's (FR-E10).
         out["sections"] = [s.model_dump(mode="json") for s in teacher_sections(form)]
-        out["answers"] = r.answers
+        # Others see the teacher's answers once submitted, not their drafts.
+        shown = access.is_respondent(db, principal, r) or r.status in ("submitted", "returned")
+        out["answers"] = r.answers if shown else {}
     return out
 
 

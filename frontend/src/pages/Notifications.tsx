@@ -26,6 +26,7 @@ export function useInbox(enabled: boolean) {
 /** Where a notice leads, when it is about one record. */
 function target(n: NotificationItem, role: Role | undefined): string | null {
   const p = n.payload;
+  if (typeof p.request_id === "number") return `/requests/${p.request_id}`;
   if (typeof p.document_id === "number") return `/reports/${p.document_id}`;
   if (typeof p.evaluation_id === "number") return `/evaluations/${p.evaluation_id}`;
   if (typeof p.form_id === "number") {
