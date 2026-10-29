@@ -68,7 +68,8 @@ function kuwaitDate(offsetDays) {
   const [base, seedFile, fixtures, out] = process.argv.slice(2);
   const seed = JSON.parse(fs.readFileSync(seedFile, "utf8"));
   fs.mkdirSync(out, { recursive: true });
-  const browser = await chromium.launch();
+  // With a self-signed certificate the service worker only registers if Chromium trusts it too.
+  const browser = await chromium.launch(process.env.E2E_IGNORE_HTTPS === "1" ? { args: ["--ignore-certificate-errors"] } : {});
   const problems = [];
   let shot = 0;
   const pages = [];
@@ -79,7 +80,8 @@ function kuwaitDate(offsetDays) {
   };
 
   async function signIn(key, viewport = { width: 1280, height: 900 }) {
-    const context = await browser.newContext({ viewport, acceptDownloads: true });
+    // E2E_IGNORE_HTTPS=1 accepts a self-signed certificate, for example Caddy's for localhost.
+    const context = await browser.newContext({ viewport, acceptDownloads: true, ignoreHTTPSErrors: process.env.E2E_IGNORE_HTTPS === "1" });
     const page = await context.newPage();
     pages.push(page);
     page.on("pageerror", (e) => problems.push(`${key}: page error ${e.message}`));
@@ -330,6 +332,8 @@ function kuwaitDate(offsetDays) {
   await viewer.waitForLoadState();
   for (let i = 0; i < 20 && !served.length; i++) await admin.waitForTimeout(250);
   check(served.length > 0 && served[0].status() === 200 && served[0].headers()["content-type"] === "application/pdf", "admin opens the report in a new tab");
+  // The preview keeps the API's own strict rules; the web server only adds defaults.
+  check(/default-src 'none'/.test(served[0].headers()["content-security-policy"] ?? ""), "file preview served with a no-script Content Security Policy");
   await viewer.close();
   await admin.reload();
   await admin.getByText("Viewed").first().waitFor();

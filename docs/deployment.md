@@ -164,7 +164,11 @@ outbound internet access to `database.clamav.net`. If the scanner is down,
 uploads wait and are scanned when it returns; nothing is served unscanned.
 
 Upload limits (size, pages, uploads per hour, storage per person) are under
-Settings.
+Settings. The upload size can be set up to 59 MB. Above that, the web server
+and the API both refuse the request before reading it (60 MB for uploads, 2 MB
+for everything else), so a single request cannot fill the disk. To allow
+larger files, raise `max_size` in `frontend/Caddyfile` and set
+`SCES_MAX_UPLOAD_REQUEST_MB` for the `api` service to the same value.
 
 ## 7. Emergency access
 

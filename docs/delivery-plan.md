@@ -221,7 +221,7 @@ forms or by scanning paper reports and submitting them to the admins.
 
 **Release:** Pilot 1, one cluster. Paper is still allowed as a fallback.
 
-**Status (Oct 29, 2026): built; security review and district pilot to come**
+**Status (Oct 29, 2026): built and verified; waiting on the district for the pilot**
 
 Built:
 
@@ -250,7 +250,8 @@ Built:
 
 How it was verified:
 
-- 141 backend tests against MySQL 8 with the real migrations, including the
+- 155 backend tests against MySQL 8 with the real migrations (and one that
+  runs only against a live ClamAV server), including the
   permission matrix for every Phase 2 endpoint, the same-school second
   supervisor case and the post-reassignment case.
 - Browser test (`e2e/phase2.cjs`, seeded by `e2e/seed_phase2.py`) through
@@ -267,13 +268,30 @@ How it was verified:
   a stale version sent when "Send for review" followed "Save"; and a server
   error on browser device times with a time zone.
 
-Not yet done:
+Security review: see [security-review-phase2.md](security-review-phase2.md).
+ID guessing, link reuse and upload attacks are tests that run in CI. Two
+medium findings were fixed: report files could be opened around the report's
+own link, which kept the view out of the owner's access history, and request
+bodies had no size limit before being read. No high findings; none open.
 
-- Teacher evaluations were tested through the API, not yet in the browser.
-- The focused security review of document and form endpoints.
-- Phase 2 on the full Compose stack with the real ClamAV service. Phase 1
-  was verified there; CI builds the images.
-- The pilot cluster's data and the first real ministry report form.
+Full stack: the browser test passed against the Compose stack (MySQL,
+migrations, API, worker, ClamAV with current signatures, Caddy with HTTPS),
+including teacher evaluations with both PDFs, with no page errors. There:
+
+- Every upload was scanned clean by ClamAV; a PDF carrying the EICAR test
+  string was quarantined and its link refused.
+- File previews kept the API's no-script Content Security Policy behind
+  Caddy.
+- A 70 MB upload was refused by Caddy and a 3 MB JSON body by the API, both
+  with 413.
+
+Waiting on the district:
+
+- The pilot cluster's schools, teachers and supervisors (imported with the
+  Phase 1 tools), and the first real ministry report, built as a form by the
+  Form Author.
+- Installation on the district's server (Q13), then the smoke test and the
+  Phase 2 browser test there.
 
 ---
 

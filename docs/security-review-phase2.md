@@ -40,7 +40,7 @@ criterion is "no open high findings". None are open.
 | 2 | Request bodies had no size limit. Upload routes check the size, but only after the server has spooled the whole body to disk, so one request could fill the disk. | Medium | The API refuses bodies over 60 MB for uploads and 2 MB otherwise, by declared length or by counting, before they are read (`app/body_limit.py`). Caddy enforces the same 60 MB. An admin cannot set the upload limit above it. |
 | 3 | Table answers without a row limit, and form definitions without size limits. | Low | Tables default to at most 200 rows. Forms allow at most 50 sections, 300 questions per section, 200 options and 30 columns, and 2,000 characters per text. |
 | 4 | Report search text had no length limit. | Low | At most 100 characters, as for the other searches. |
-| 5 | Caddy replaced the API's own security headers, so file previews lost their stricter Content Security Policy. | Low | Caddy now only sets defaults; API responses keep theirs. Checked on the full stack (see below). |
+| 5 | Caddy replaced the API's own security headers, so file previews lost their stricter Content Security Policy. | Low | Caddy now only sets defaults; API responses keep theirs. Checked on the full stack: previews keep `default-src 'none'` behind Caddy. |
 
 ## Accepted risks
 
