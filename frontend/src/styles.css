@@ -229,3 +229,12 @@ td .row-actions { display: flex; gap: 4px; flex-wrap: wrap; }
 /* Scoring rule sets (FR-SC2): the formula is edited as JSON. */
 .code-block { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; inline-size: 100%; }
 .badge-failed, .badge-discarded { background: #fdecea; color: var(--danger); }
+
+/* Dashboards and search (FR-RP1, FR-RP2). */
+a.stat { color: inherit; text-decoration: none; display: block; }
+a.stat:hover { border-color: var(--primary); }
+.stat-value, .stat-label { display: block; }
+.stat-warn { color: #7a5200; }
+.inline-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.header-search input { min-inline-size: 12rem; max-inline-size: 100%; }
+@media (max-width: 600px) { .header-search { flex: 1 1 100%; } .header-search input { inline-size: 100%; } }

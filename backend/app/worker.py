@@ -21,6 +21,7 @@ from app.files import service as files
 from app.mail import queue as mail
 from app.models import Job
 from app.push import service as push
+from app.reporting import archive  # noqa: F401 - registers its job handlers
 from app.requests import service as requests
 from app.scoring import service as scoring  # noqa: F401 - registers its job handlers
 

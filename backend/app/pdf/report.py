@@ -74,8 +74,8 @@ def _date(value: Any) -> str:
 
 
 class _Pdf(FPDF):
-    def __init__(self, locale: str, footer_label: str):
-        super().__init__(format="A4")
+    def __init__(self, locale: str, footer_label: str, orientation: str = "P"):
+        super().__init__(orientation=orientation, format="A4")
         self.locale = locale
         self.footer_label = footer_label
         fonts = resources.files("app.pdf").joinpath("fonts")

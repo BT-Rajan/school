@@ -8,7 +8,7 @@ from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -118,6 +118,19 @@ def can_read(db: Session, principal: Principal, e: Evaluation) -> bool:
         school = db.get(School, e.school_id)
         return school.cluster_id in (managed_cluster_ids(db, principal) or [])
     return False
+
+
+def visible_query(db: Session, principal: Principal) -> Select:
+    """The evaluations a user may list, count or report on: the same rule as can_read (FR-E10)."""
+    query = select(Evaluation)
+    if principal.role == Role.DISTRICT_ADMIN:
+        return query
+    if principal.role == Role.SUPERVISOR:
+        return query.where(Evaluation.supervisor_id == _own_supervisor(db, principal).id)
+    if principal.role == Role.CLUSTER_HEAD:
+        schools = select(School.id).where(School.cluster_id.in_(managed_cluster_ids(db, principal) or []))
+        return query.where(Evaluation.school_id.in_(schools))
+    raise AppError(403, "forbidden")
 
 
 def get_evaluation(db: Session, principal: Principal, evaluation_id: int) -> Evaluation:
@@ -536,16 +549,7 @@ def list_evaluations(
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
-    query = select(Evaluation).order_by(Evaluation.id.desc())
-    if principal.role == Role.SUPERVISOR:
-        own = _own_supervisor(db, principal)
-        query = query.where(Evaluation.supervisor_id == own.id)
-    elif principal.role == Role.CLUSTER_HEAD:
-        query = query.join(School, School.id == Evaluation.school_id).where(
-            School.cluster_id.in_(managed_cluster_ids(db, principal) or [])
-        )
-    elif principal.role != Role.DISTRICT_ADMIN:
-        raise AppError(403, "forbidden")
+    query = visible_query(db, principal).order_by(Evaluation.id.desc())
     if status:
         query = query.where(Evaluation.status == status)
     if school_id:

@@ -1,6 +1,6 @@
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
 import { LanguageSwitch } from "./components";
 import Account from "./pages/Account";
@@ -27,6 +27,8 @@ import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Schools from "./pages/Schools";
 import Scoring from "./pages/Scoring";
+import Search from "./pages/Search";
+import StandardReports from "./pages/StandardReports";
 import Settings from "./pages/Settings";
 import Staff from "./pages/Staff";
 import Supervisors from "./pages/Supervisors";
@@ -48,6 +50,7 @@ const NAV: { to: string; key: string; roles?: Role[] }[] = [
   { to: "/dashboard", key: "nav.dashboard", roles: SUPERVISOR },
   { to: "/reports", key: "nav.reports", roles: FIELD },
   { to: "/evaluations", key: "nav.evaluations", roles: FIELD },
+  { to: "/standard-reports", key: "nav.standardReports", roles: FIELD },
   { to: "/requests", key: "nav.requests", roles: FIELD },
   { to: "/requests", key: "nav.myRequests", roles: TEACHER },
   { to: "/assignments", key: "nav.assignments", roles: MANAGERS },
@@ -63,6 +66,20 @@ const NAV: { to: string; key: string; roles?: Role[] }[] = [
   { to: "/settings", key: "nav.settings", roles: ADMIN },
   { to: "/account", key: "nav.account" },
 ];
+
+/** FR-RP1: search from any screen. */
+function HeaderSearch() {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const [q, setQ] = useState("");
+  return (
+    <form role="search" className="header-search" onSubmit={(e) => { e.preventDefault(); if (q.trim()) navigate(`/search?q=${encodeURIComponent(q.trim())}`); }}>
+      <label htmlFor="global-search" className="visually-hidden">{t("search.label")}</label>
+      <input id="global-search" type="search" dir="auto" value={q} maxLength={100} placeholder={t("search.placeholder")}
+        onChange={(e) => setQ(e.target.value)} />
+    </form>
+  );
+}
 
 function Shell({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
@@ -92,6 +109,7 @@ function Shell({ children }: { children: ReactNode }) {
             {waiting > 0 && (
               <NavLink to="/outbox" className="badge badge-warn">{t("offline.waiting", { count: waiting })}</NavLink>
             )}
+            {FIELD.includes(me.role) && <HeaderSearch />}
             <NavLink to="/notifications" className="bell" aria-label={t("notifications.unread", { count: unread })}>
               🔔{unread > 0 && <span className="bell-count">{unread > 99 ? "99+" : unread}</span>}
             </NavLink>
@@ -157,6 +175,8 @@ export default function App() {
         <Route path="/requests" element={<Protected roles={REQUESTS}><Requests /></Protected>} />
         <Route path="/requests/:id" element={<Protected roles={REQUESTS}><RequestPage /></Protected>} />
         <Route path="/dashboard" element={<Protected roles={SUPERVISOR}><Dashboard /></Protected>} />
+        <Route path="/search" element={<Protected roles={FIELD}><Search /></Protected>} />
+        <Route path="/standard-reports" element={<Protected roles={FIELD}><StandardReports /></Protected>} />
         <Route path="/notifications" element={<Protected><Notifications /></Protected>} />
         <Route path="/outbox" element={<Protected><Outbox /></Protected>} />
         <Route path="*" element={<Navigate to="/" replace />} />
