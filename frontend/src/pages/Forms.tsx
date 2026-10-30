@@ -65,7 +65,7 @@ export default function Forms() {
             )}
             {!isAdmin && r.standalone_allowed && <span className="badge">{t("forms.standaloneBadge")}</span>}
           </div>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <thead>
                 <tr>

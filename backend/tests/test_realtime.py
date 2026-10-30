@@ -97,3 +97,46 @@ def test_server_sent_events_fallback(w):
         assert next(lines) == "retry: 3000"
         assert next(lines) == ""
         assert next(lines) == 'data: {"type": "ready"}'
+
+
+def test_the_bulk_audience_matches_the_rule_for_everyone(w):
+    """Live updates decide who hears about a report for everyone at once (documents.access.audience).
+    It must agree with can_access, the rule every screen uses, for every user and report state."""
+    from sqlalchemy import select
+
+    from app.auth.deps import Principal
+    from app.documents import access
+    from app.models import Document, User, UserStatus
+
+    a, b, admin = w["a"], w["b"], w["admin1"]
+    create(a, w)  # a draft
+    submitted = create(a, w).json()
+    act(a, submitted, "submit")
+    forwarded = create(b, w).json()
+    act(b, forwarded, "submit")
+    assert admin.post(f"/api/documents/{forwarded['id']}/forward", json={"note": "x"}).status_code == 200
+    revoked = create(a, w, school=w["school_y"]).json()
+    act(a, revoked, "submit")
+    admin.post(f"/api/documents/{revoked['id']}/forward", json={"note": "x"})
+    admin.post(f"/api/documents/{revoked['id']}/revoke-forward")
+    deleted = create(a, w).json()
+    act(a, deleted, "delete")
+    withdrawn = create(b, w).json()
+    act(b, withdrawn, "submit")
+    act(b, b.get(f"/api/documents/{withdrawn['id']}").json(), "withdraw")
+    with session_factory()() as db:
+        users = list(db.execute(select(User).where(User.status == UserStatus.ACTIVE)).scalars())
+        principals = [Principal(u, None) for u in users]
+        documents = list(db.execute(select(Document.id)).scalars())
+        assert len(documents) == 6
+        for document_id in documents:
+            expected = {p.user.id for p in principals if access.can_access(db, p, document_id)}
+            assert access.audience(db, principals, document_id) == expected
+            assert expected  # every report has someone who may see it: the admins
+        # The cases are real: the Cluster Head hears about the forwarded report only, and the
+        # owner no longer hears about the deleted one.
+        head, owner_a = w["head_user"].id, w["user_a"].id
+        assert head in access.audience(db, principals, forwarded["id"])
+        assert head not in access.audience(db, principals, revoked["id"])
+        assert owner_a in access.audience(db, principals, submitted["id"])
+        assert owner_a not in access.audience(db, principals, deleted["id"])

@@ -120,7 +120,7 @@ export default function Home() {
   const { t } = useTranslation();
   const { me } = useSession();
   const dash = useQuery({
-    queryKey: ["dashboard"],
+    queryKey: ["dashboard", "home"],
     queryFn: () => api<Dash>("/api/dashboard"),
     enabled: !!me && me.role !== "form_author",
   });
@@ -175,7 +175,7 @@ function Admin({ d }: { d: AdminDash }) {
       <div className="card">
         <h2>{t("dash.coverage")}</h2>
         {d.coverage.length === 0 ? <p className="hint">{t("dash.noActiveForms")}</p> : (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <thead><tr><th>{t("evaluations.reportVersion")}</th><th>{t("dash.evaluated")}</th><th>{t("dash.withReport")}</th><th>{t("dash.closes")}</th></tr></thead>
               <tbody>
@@ -251,7 +251,7 @@ function Head({ d }: { d: HeadDash }) {
       <div className="card">
         <h2>{t("dash.progress")}</h2>
         <p className="hint">{t("dash.progressHint", { count: d.active_forms })}</p>
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table>
             <thead><tr><th>{t("schools.school")}</th><th>{t("dash.drafts")}</th><th>{t("status.submitted")}</th></tr></thead>
             <tbody>
@@ -264,7 +264,7 @@ function Head({ d }: { d: HeadDash }) {
       </div>
       <div className="card">
         <h2>{t("dash.workload")}</h2>
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table>
             <thead><tr><th>{t("roles.supervisor")}</th><th>{t("nav.schools")}</th><th>{t("dash.drafts")}</th><th>{t("dash.thisMonth")}</th></tr></thead>
             <tbody>

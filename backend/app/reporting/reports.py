@@ -94,7 +94,7 @@ class Report:
 
 C = Column
 SCHOOL_COLS = [
-    C("cluster", "Cluster", "المجموعة"),
+    C("cluster", "Cluster", "المجمع"),
     C("school_code", "School ID", "رقم المدرسة"),
     C("school", "School", "المدرسة"),
 ]

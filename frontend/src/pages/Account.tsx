@@ -115,7 +115,7 @@ export default function Account() {
       <section className="card">
         <h2>{t("account.sessions")}</h2>
         <ErrorMessage error={revoke.error} />
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table>
             <thead>
               <tr>

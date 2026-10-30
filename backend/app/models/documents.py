@@ -1,11 +1,13 @@
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import ForeignKey, Index, String, Text, UniqueConstraint
+from sqlalchemy import Computed, ForeignKey, Index, SmallInteger, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app import clock
 from app.db import Base
+
+REVIEW_PRIORITY = "status in ('submitted', 'viewed', 'returned', 'draft')"
 
 
 class Document(Base):
@@ -18,8 +20,15 @@ class Document(Base):
     __tablename__ = "documents"
     __table_args__ = (
         Index("ix_documents_owner_status_date", "owner_supervisor_id", "status", "report_date"),
-        Index("ix_documents_status_submitted", "status", "submitted_at"),
+        # The inbox: by status, or work waiting for review first, then newest. The trailing
+        # columns let the list filter and count from the index alone (section 15).
+        Index("ix_documents_status_submitted", "status", "submitted_at", "id", "archived_at", "deleted_at"),
+        Index(
+            "ix_documents_review_order", "review_priority", "submitted_at", "id", "archived_at", "deleted_at", "status"
+        ),
         Index("ix_documents_school_report", "school_id", "ministry_report_version_id"),
+        # Dashboard coverage: which schools have a submitted report for each report version.
+        Index("ix_documents_report_coverage", "ministry_report_version_id", "school_id", "deleted_at", "status"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -35,6 +44,8 @@ class Document(Base):
     notes: Mapped[str | None] = mapped_column(Text)
     tags: Mapped[list[Any]] = mapped_column(default=list)
     status: Mapped[str] = mapped_column(String(16), default="draft")
+    # 1 for work not yet acknowledged; the inbox lists it first.
+    review_priority: Mapped[int] = mapped_column(SmallInteger, Computed(REVIEW_PRIORITY, persisted=True))
     current_version_id: Mapped[int | None] = mapped_column(ForeignKey("document_versions.id", use_alter=True))
     submitted_at: Mapped[datetime | None]
     first_viewed_at: Mapped[datetime | None]

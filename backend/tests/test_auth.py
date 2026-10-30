@@ -10,7 +10,7 @@ from app.models import AuditLog, AuthChallenge, MailMessage, MfaMethod, Role, Us
 from app.security import tokens, totp
 from app.security.passwords import policy_problem
 
-from .helpers import PASSWORD, csrf, deliver_mail, last_code, login, make_user, user_by_email
+from .helpers import PASSWORD, csrf, deliver_mail, last_code, login, make_user, signed_in, user_by_email
 
 
 def _start(client, email, password=PASSWORD):
@@ -48,6 +48,22 @@ def test_lockout_after_five_bad_codes(client, outbox):
     # After 15 minutes the lock lifts.
     clock.freeze(clock.now() + timedelta(minutes=16))
     assert _start(client, "t@example.org").status_code == 200
+
+
+def test_admin_unlocks_a_locked_account(client, new_client, outbox):
+    """Section 18: locked until unlocked; an admin's unlock is audited and works at once."""
+    admin, _ = signed_in(new_client, outbox, Role.DISTRICT_ADMIN, "admin@example.org", mfa=MfaMethod.TOTP)
+    user, _ = make_user(Role.TEACHER, "t@example.org")
+    challenge = _start(client, "t@example.org").json()["challenge"]
+    for _ in range(5):
+        client.post("/api/auth/login/verify", json={"challenge": challenge, "code": "000000"})
+    assert _start(client, "t@example.org").status_code == 423
+    locked = admin.get("/api/admin/locked-accounts").json()
+    assert [u["email"] for u in locked] == ["t@example.org"]
+    assert admin.post(f"/api/users/{user.id}/unlock").status_code == 204
+    assert _start(client, "t@example.org").status_code == 200
+    with session_factory()() as db:
+        assert db.execute(select(AuditLog).where(AuditLog.action.like("%unlock%"))).first()
 
 
 def test_code_requests_are_rate_limited(client, outbox):

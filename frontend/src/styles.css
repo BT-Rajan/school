@@ -246,3 +246,5 @@ a.stat:hover { border-color: var(--primary); }
 .audit-warning td:first-child { border-inline-start: 4px solid #f0a500; }
 .audit-critical td:first-child { border-inline-start: 4px solid var(--danger); }
 pre { white-space: pre-wrap; word-break: break-word; margin: 0; font-size: 0.85rem; }
+/* Wide tables scroll sideways on phones; the wrapper takes focus so the keyboard can scroll it. */
+.table-wrap:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }

@@ -133,7 +133,7 @@ export default function StandardReports() {
           <h2>{report.data.title}</h2>
           <p className="hint">{t("standard.rows", { count: report.data.rows.length })}</p>
           {report.data.rows.length === 0 ? <p>{t("standard.empty")}</p> : (
-            <div className="table-wrap">
+            <div className="table-wrap" tabIndex={0}>
               <table>
                 <thead><tr>{report.data.columns.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
                 <tbody>

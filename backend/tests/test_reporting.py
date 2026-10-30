@@ -88,7 +88,7 @@ def test_exports_are_audited_in_both_languages(w):
     assert sheet.sheet_view.rightToLeft is True
     assert sheet["A1"].value == "حالة التقييمات حسب المدرسة"
     assert "SX" in sheet["A2"].value  # the filter, by name
-    assert [c.value for c in sheet[6]][:3] == ["المجموعة", "رقم المدرسة", "المدرسة"]
+    assert [c.value for c in sheet[6]][:3] == ["المجمع", "رقم المدرسة", "المدرسة"]
     assert [c.value for c in sheet[7]][:3] == ["C1", "SX", "School SX"]
     for locale in ("en", "ar"):
         r = admin.get("/api/standard-reports/assignment_history", params={"format": "pdf", "locale": locale})

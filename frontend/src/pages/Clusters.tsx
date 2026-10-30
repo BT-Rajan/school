@@ -73,7 +73,7 @@ export default function Clusters() {
         )}
       </PageHeader>
       <ErrorMessage error={clusters.error ?? toggle.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

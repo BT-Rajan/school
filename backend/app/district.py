@@ -4,12 +4,14 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db import per_session
 from app.errors import AppError
 from app.models import District
 
 
 def get_district(db: Session) -> District:
-    district = db.execute(select(District).limit(1)).scalar_one_or_none()
+    # Read once per request: almost every rule needs it, and it is one row.
+    district = per_session(db, "district", lambda: db.execute(select(District).limit(1)).scalar_one_or_none())
     if district is None:
         raise AppError(503, "district_not_configured")
     return district

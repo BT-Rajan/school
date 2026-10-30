@@ -97,7 +97,7 @@ export default function AuditLog() {
       {data && (
         <>
           <p className="hint">{t("auditLog.count", { count: data.total })}</p>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <thead>
                 <tr>

@@ -61,6 +61,12 @@ export default function Supervisors() {
     setEditing(null);
     await refresh();
   });
+  // An admin resets a supervisor who lost their authenticator to emailed codes (FR-A8).
+  const resetMfa = useAction(async (s: Supervisor) => {
+    if (!window.confirm(t("staff.resetMfaConfirm"))) return;
+    await api(`/api/users/${s.user_id}/mfa-reset`, { method: "POST" });
+    await refresh();
+  });
   const toggle = useAction(async (s: Supervisor) => {
     const action = s.status === "active" ? "deactivate" : "reactivate";
     if (action === "deactivate" && !window.confirm(t("common.confirmDeactivate"))) return;
@@ -88,7 +94,7 @@ export default function Supervisors() {
         </select>
       </div>
       <ErrorMessage error={list.error ?? toggle.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>
@@ -111,6 +117,9 @@ export default function Supervisors() {
                 <td>
                   <div className="row-actions">
                     <button type="button" onClick={() => open(s)}>{t("common.edit")}</button>
+                    {isAdmin && s.account_status === "active" && (
+                      <button type="button" onClick={() => void resetMfa.run(s)}>{t("staff.resetMfa")}</button>
+                    )}
                     <button type="button" className={s.status === "active" ? "danger" : ""} onClick={() => void toggle.run(s)}>
                       {s.status === "active" ? t("common.deactivate") : t("common.reactivate")}
                     </button>

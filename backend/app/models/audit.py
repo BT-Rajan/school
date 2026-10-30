@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, String
+from sqlalchemy import BigInteger, Index, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app import clock
@@ -16,6 +16,8 @@ class AuditLog(Base):
     """
 
     __tablename__ = "audit_log"
+    # A record's history (who viewed a report, what changed on a school) without a full scan.
+    __table_args__ = (Index("ix_audit_log_entity", "entity_type", "entity_id", "seq"),)
 
     seq: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=False)
     actor_id: Mapped[int | None] = mapped_column(index=True)

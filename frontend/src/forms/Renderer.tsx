@@ -250,7 +250,7 @@ function TableInput({ q, value, set, lang, t, problems, sectionKey }: {
     set(q.key, rows.map((row, i) => (i === index ? { ...row, [key]: cell } : row)));
   const full = q.max_rows != null && rows.length >= q.max_rows;
   return (
-    <div className="table-wrap">
+    <div className="table-wrap" tabIndex={0}>
       <table>
         <thead>
           <tr>
@@ -361,7 +361,7 @@ function ReadOnlyAnswer({ q, value, lang, t }: { q: Question; value: unknown; la
     case "table": {
       const columns = q.columns ?? [];
       return (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table>
             <thead>
               <tr>{columns.map((c) => <th key={c.key}>{text(c.label, lang)}</th>)}</tr>

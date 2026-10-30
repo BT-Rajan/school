@@ -118,7 +118,12 @@ def test_visit_date_must_be_in_assignment_window(world):
 def test_only_assigned_schools_and_active_forms(world):
     a = world["a"]
     r = a.post("/api/evaluations", json={"form_id": world["form_id"], "school_id": world["school2"].id})
-    assert r.status_code == 404
+    assert r.status_code == 403 and r.json()["error"]["code"] == "school_not_assigned"
+    # Section 18: the same for the school's evaluations, and each denial is audited.
+    assert a.get("/api/evaluations", params={"school_id": world["school2"].id}).status_code == 403
+    with session_factory()() as db:
+        denials = db.execute(select(AuditLog).where(AuditLog.action == "permission.denied")).scalars().all()
+    assert [(d.entity_type, d.after["reason"]) for d in denials] == [("school", "not_assigned")] * 2
     later = publish_direct(sample_schema(), TODAY + timedelta(days=3), TODAY + timedelta(days=9), version="2026.2")
     r = a.post("/api/evaluations", json={"form_id": later, "school_id": world["school"].id})
     assert r.json()["error"]["code"] == "form_not_active"

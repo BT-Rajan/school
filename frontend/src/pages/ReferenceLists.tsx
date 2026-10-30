@@ -66,7 +66,7 @@ export default function ReferenceLists() {
         {t("reference.showRetired")}
       </label>
       <ErrorMessage error={values.error ?? toggle.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

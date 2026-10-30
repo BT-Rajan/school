@@ -71,7 +71,7 @@ function FieldTable({ entity }: { entity: "teacher" | "school" }) {
         <button className="primary" type="button" onClick={() => open("new")}>{t("customFields.new")}</button>
       </div>
       <ErrorMessage error={fields.error ?? toggle.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

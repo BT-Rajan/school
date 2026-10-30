@@ -20,6 +20,7 @@ import {
 } from "../components";
 import { formatDate } from "../format";
 import { useAllSchools, useCustomFields, useReference } from "../hooks";
+import { useSession } from "../session";
 import type { CustomValues, Onboarding, Page, Teacher } from "../types";
 
 const PAGE_SIZE = 50;
@@ -54,6 +55,8 @@ function toForm(tch: Teacher): Form {
 
 export default function Teachers() {
   const { t } = useTranslation();
+  const { me } = useSession();
+  const isAdmin = me?.role === "district_admin";
   const refName = useRefName();
   const client = useQueryClient();
   const schools = useAllSchools();
@@ -125,8 +128,9 @@ export default function Teachers() {
   });
 
   const [notice, setNotice] = useState("");
-  const accountAction = useAction(async (teacher: Teacher, action: "deactivate" | "reactivate" | "resend-invitation") => {
+  const accountAction = useAction(async (teacher: Teacher, action: "deactivate" | "reactivate" | "resend-invitation" | "mfa-reset") => {
     if (action === "deactivate" && !window.confirm(t("common.confirmDeactivate"))) return;
+    if (action === "mfa-reset" && !window.confirm(t("staff.resetMfaConfirm"))) return;
     await api(`/api/users/${teacher.user_id}/${action}`, { method: "POST" });
     if (action === "resend-invitation") setNotice(t("teachers.inviteSent"));
     await refresh();
@@ -167,7 +171,7 @@ export default function Teachers() {
       </div>
       {notice && <Notice>{notice}</Notice>}
       <ErrorMessage error={list.error ?? accountAction.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>
@@ -201,6 +205,9 @@ export default function Teachers() {
                       <button type="button" onClick={() => void accountAction.run(tch, "resend-invitation")}>
                         {t("teachers.resendInvite")}
                       </button>
+                    )}
+                    {isAdmin && tch.account_status === "active" && (
+                      <button type="button" onClick={() => void accountAction.run(tch, "mfa-reset")}>{t("staff.resetMfa")}</button>
                     )}
                     <button type="button" className={tch.status === "active" ? "danger" : ""}
                       onClick={() => void accountAction.run(tch, tch.status === "active" ? "deactivate" : "reactivate")}>

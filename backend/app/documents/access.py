@@ -8,6 +8,8 @@
 
 Lists, search, counts, dashboards, links and notifications all build on
 visible_query, so no path can skip the rule. can_access asks the same query.
+audience answers it for many people at once, for live updates; a test holds it to
+can_access for every user and document.
 """
 
 from sqlalchemy import Select, exists, false, select
@@ -17,7 +19,7 @@ from app.assignments import queries as assignments
 from app.audit import service as audit
 from app.auth.deps import Principal
 from app.errors import not_found
-from app.models import Cluster, Document, DocumentForward, Role
+from app.models import Cluster, Document, DocumentForward, Role, Supervisor
 
 
 def visible_query(db: Session, principal: Principal) -> Select:
@@ -47,6 +49,38 @@ def visible_query(db: Session, principal: Principal) -> Select:
 def can_access(db: Session, principal: Principal, document_id: int) -> bool:
     query = visible_query(db, principal).where(Document.id == document_id).with_only_columns(Document.id)
     return db.execute(query).first() is not None
+
+
+def audience(db: Session, principals: list[Principal], document_id: int) -> set[int]:
+    """The user IDs among these principals for whom can_access holds, in three queries."""
+    document = db.execute(
+        select(Document.deleted_at, Document.status, Supervisor.user_id)
+        .join(Supervisor, Supervisor.id == Document.owner_supervisor_id)
+        .where(Document.id == document_id)
+    ).first()
+    if document is None:
+        return set()
+    deleted_at, status, owner_user_id = document
+    heads: set[int] = set()
+    if deleted_at is None and status not in ("draft", "withdrawn"):
+        heads = set(
+            db.execute(
+                select(Cluster.cluster_head_id)
+                .join(DocumentForward, DocumentForward.cluster_id == Cluster.id)
+                .where(DocumentForward.document_id == document_id, DocumentForward.revoked_at.is_(None))
+            ).scalars()
+        )
+    allowed = set()
+    for p in principals:
+        if p.role == Role.DISTRICT_ADMIN:
+            allowed.add(p.user.id)
+        elif p.role == Role.SUPERVISOR and deleted_at is None and p.user.id == owner_user_id:
+            # The owner is the supervisor row's user; visible_query asks the same through
+            # supervisor_for_user.
+            allowed.add(p.user.id)
+        elif p.role == Role.CLUSTER_HEAD and p.user.id in heads:
+            allowed.add(p.user.id)
+    return allowed
 
 
 def get_visible(db: Session, principal: Principal, document_id: int) -> Document:

@@ -37,7 +37,8 @@ def _common_passwords() -> frozenset[str]:
 
 
 def _breached_online(password: str) -> bool:
-    digest = hashlib.sha1(password.encode()).hexdigest().upper()  # noqa: S324 - required by the API
+    # The range API needs SHA-1; only its first five characters leave the server (k-anonymity).
+    digest = hashlib.sha1(password.encode(), usedforsecurity=False).hexdigest().upper()
     try:
         response = httpx.get(f"https://api.pwnedpasswords.com/range/{digest[:5]}", timeout=3)
         response.raise_for_status()

@@ -1,8 +1,8 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 from datetime import date, datetime
 from typing import Any
 
-from sqlalchemy import JSON, Date, DateTime, MetaData, create_engine
+from sqlalchemy import JSON, Date, DateTime, MetaData, create_engine, select
 from sqlalchemy.dialects.mysql import DATETIME
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
@@ -63,3 +63,28 @@ def get_db() -> Iterator[Session]:
         yield db
     finally:
         db.close()
+
+
+def preload(db: Session, model: Any, ids: Iterable[int | None]) -> None:
+    """Load these rows in one query, so later db.get() calls for them need none.
+
+    Lists use it before building each row, instead of fetching every related record one at a
+    time (section 15: list queries under 300 ms at design scale).
+    """
+    wanted = {i for i in ids if i is not None}
+    missing = [i for i in wanted if db.identity_map.get(db.identity_key(model, i)) is None]
+    # The session only holds rows weakly; keep these until it closes, or they are dropped at once.
+    kept = db.info.setdefault("preloaded", [])
+    for start in range(0, len(missing), 1000):
+        kept.extend(db.execute(select(model).where(model.id.in_(missing[start : start + 1000]))).scalars())
+
+
+def per_session(db: Session, key: str, load: Callable[[], Any]) -> Any:
+    """A value worked out once per session (one request), such as the district row."""
+    cache = db.info.setdefault("cached", {})
+    if key not in cache:
+        value = load()
+        if value is None:
+            return None
+        cache[key] = value
+    return cache[key]

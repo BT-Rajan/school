@@ -22,6 +22,7 @@ from app import clock
 from app.assignments import queries as assignments
 from app.audit import service as audit
 from app.auth.deps import Principal
+from app.db import preload
 from app.district import get_district
 from app.errors import AppError, invalid, not_found
 from app.files import service as files
@@ -710,21 +711,40 @@ def access_history(db: Session, principal: Principal, document_id: int) -> list[
     d = access.get_visible(db, principal, document_id)
     if not (access.is_owner(db, principal, d) or principal.role == Role.DISTRICT_ADMIN):
         raise AppError(403, "forbidden")
-    owner_user = db.get(Supervisor, d.owner_supervisor_id).user_id
-    rows = db.execute(
+    return _access_entries(db, [d])
+
+
+def _access_entries(db: Session, docs: list[Document], limit: int | None = None) -> list[dict[str, Any]]:
+    """Views and downloads of these reports by anyone but their owner, newest first."""
+    if not docs:
+        return []
+    owners = {d.owner_supervisor_id for d in docs}
+    preload(db, Supervisor, owners)
+    owner_users = {db.get(Supervisor, s).user_id for s in owners}
+    titles = {str(d.id): d.title for d in docs}
+    query = (
         select(AuditLog, User)
         .join(User, User.id == AuditLog.actor_id)
         .where(
             AuditLog.entity_type == "document",
-            AuditLog.entity_id == str(d.id),
+            AuditLog.entity_id.in_(titles),
             AuditLog.action.in_(("document.viewed", "document.downloaded")),
-            AuditLog.actor_id != owner_user,
+            AuditLog.actor_id.not_in(owner_users),
         )
         .order_by(AuditLog.seq.desc())
-    ).all()
+    )
+    if limit is not None:
+        query = query.limit(limit)
     return [
-        {"action": a.action.removeprefix("document."), "by": u.name, "role": u.role, "at": a.created_at}
-        for a, u in rows
+        {
+            "document_id": int(a.entity_id),
+            "title": titles[a.entity_id],
+            "action": a.action.removeprefix("document."),
+            "by": u.name,
+            "role": u.role,
+            "at": a.created_at,
+        }
+        for a, u in db.execute(query).all()
     ]
 
 
@@ -783,11 +803,33 @@ def list_documents(
         query = query.where(Document.report_date >= date_from)
     if date_to:
         query = query.where(Document.report_date <= date_to)
-    # Unacknowledged and returned work first, then newest.
-    priority = Document.status.in_(("submitted", "viewed", "returned", "draft"))
-    query = query.order_by(priority.desc(), Document.submitted_at.desc(), Document.id.desc())
+    # Unacknowledged and returned work first, then newest. With one status, newest first.
+    if status is None:
+        query = query.order_by(Document.review_priority.desc())
+    query = query.order_by(Document.submitted_at.desc(), Document.id.desc())
     rows, total = paginate(db, query, page, page_size)
-    return {"items": [document_out(db, principal, d) for (d,) in rows], "total": total, "page": page}
+    docs = [d for (d,) in rows]
+    _preload(db, docs)
+    return {"items": [document_out(db, principal, d) for d in docs], "total": total, "page": page}
+
+
+def _preload(db: Session, docs: list[Document]) -> None:
+    """Everything document_out looks up for a page of documents, in a few queries."""
+    preload(db, MinistryReportVersion, {d.ministry_report_version_id for d in docs})
+    preload(
+        db,
+        MinistryReport,
+        {db.get(MinistryReportVersion, d.ministry_report_version_id).ministry_report_id for d in docs},
+    )
+    preload(db, School, {d.school_id for d in docs})
+    preload(db, Supervisor, {d.owner_supervisor_id for d in docs})
+    preload(db, User, {db.get(Supervisor, d.owner_supervisor_id).user_id for d in docs})
+    preload(db, DocumentVersion, {d.current_version_id for d in docs})
+    preload(
+        db,
+        StoredFile,
+        {db.get(DocumentVersion, d.current_version_id).stored_file_id for d in docs if d.current_version_id},
+    )
 
 
 def supervisor_dashboard(db: Session, principal: Principal) -> dict[str, Any]:
@@ -795,7 +837,9 @@ def supervisor_dashboard(db: Session, principal: Principal) -> dict[str, Any]:
     own = _own(db, principal)
     mine = list(db.execute(access.visible_query(db, principal)).scalars())
     counts = Counter(d.status for d in mine)
-    returned = [document_out(db, principal, d) for d in mine if d.status == "returned"]
+    returned_docs = [d for d in mine if d.status == "returned"]
+    _preload(db, returned_docs)
+    returned = [document_out(db, principal, d) for d in returned_docs]
     today = _today(db)
     school_ids = assignments.school_ids_for_supervisor(db, own.id, today)
     schools = {s.id: s for s in db.execute(select(School).where(School.id.in_(school_ids))).scalars()}
@@ -827,11 +871,7 @@ def supervisor_dashboard(db: Session, principal: Principal) -> dict[str, Any]:
             }
         )
     months = Counter(d.submitted_at.strftime("%Y-%m") for d in mine if d.submitted_at)
-    history = []
-    for d in mine:
-        for entry in access_history(db, principal, d.id):
-            history.append({"document_id": d.id, "title": d.title, **entry})
-    history.sort(key=lambda h: h["at"], reverse=True)
+    history = _access_entries(db, mine, limit=50)
     return {
         "counts": {
             s: counts.get(s, 0) for s in ("draft", "submitted", "viewed", "acknowledged", "returned", "withdrawn")
@@ -839,7 +879,7 @@ def supervisor_dashboard(db: Session, principal: Principal) -> dict[str, Any]:
         "returned": returned,
         "coverage": coverage,
         "per_month": [{"month": m, "count": c} for m, c in sorted(months.items())],
-        "access_history": history[:50],
+        "access_history": history,
     }
 
 

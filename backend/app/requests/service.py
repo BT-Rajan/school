@@ -28,6 +28,7 @@ from app import clock
 from app.assignments import queries as assignments
 from app.audit import service as audit
 from app.auth.deps import Principal
+from app.db import preload
 from app.district import get_district
 from app.errors import AppError, invalid, not_found
 from app.files import service as files
@@ -676,7 +677,27 @@ def list_requests(
         query = query.where(TeacherRequest.kind == kind)
     query = query.order_by(TeacherRequest.due_date, TeacherRequest.id)
     rows, total = paginate(db, query, page, page_size)
-    return {"items": [request_out(db, principal, r) for (r,) in rows], "total": total, "page": page}
+    found = [r for (r,) in rows]
+    _preload(db, found)
+    return {"items": [request_out(db, principal, r) for r in found], "total": total, "page": page}
+
+
+def _preload(db: Session, found: list[TeacherRequest]) -> None:
+    """Everything request_out looks up for a page of requests, in a few queries."""
+    preload(db, FormVersion, {r.form_version_id for r in found})
+    mrvs = {db.get(FormVersion, r.form_version_id).ministry_report_version_id for r in found}
+    preload(db, MinistryReportVersion, mrvs)
+    preload(db, MinistryReport, {db.get(MinistryReportVersion, m).ministry_report_id for m in mrvs})
+    preload(db, School, {r.school_id for r in found})
+    preload(db, Evaluation, {r.evaluation_id for r in found})
+    evaluations = [db.get(Evaluation, r.evaluation_id) for r in found if r.evaluation_id]
+    preload(db, Supervisor, {e.supervisor_id for e in evaluations})
+    teacher_ids = {r.teacher_id for r in found} | {r.pending_teacher_id for r in found}
+    preload(db, Teacher, teacher_ids | {e.teacher_id for e in evaluations})
+    users = {r.requested_by for r in found if r.evaluation_id is None}
+    users |= {db.get(Supervisor, e.supervisor_id).user_id for e in evaluations}
+    users |= {db.get(Teacher, t).user_id for t in teacher_ids | {e.teacher_id for e in evaluations} if t}
+    preload(db, User, users)
 
 
 def history(db: Session, principal: Principal, request_id: int) -> list[dict[str, Any]]:

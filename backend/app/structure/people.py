@@ -11,6 +11,7 @@ from app.assignments import queries as assignment_queries
 from app.audit import service as audit
 from app.auth import service as auth
 from app.auth.deps import Principal
+from app.db import preload
 from app.district import get_district
 from app.errors import AppError, invalid, not_found
 from app.mail import queue as mail
@@ -243,16 +244,19 @@ def _ref_out(ref: ReferenceValue) -> dict[str, Any]:
     return {"code": ref.code, "name_en": ref.name_en, "name_ar": ref.name_ar}
 
 
-def teacher_out(db: Session, teacher: Teacher, user: User | None = None, refs: dict | None = None) -> dict[str, Any]:
+def teacher_out(
+    db: Session,
+    teacher: Teacher,
+    user: User | None = None,
+    refs: dict | None = None,
+    links: dict[int, dict[str, list]] | None = None,
+) -> dict[str, Any]:
     user = user or db.get(User, teacher.user_id)
     refs = refs or _reference_map(db)
     school = db.get(School, teacher.school_id)
     cluster = db.get(Cluster, school.cluster_id)
-    subjects = db.execute(
-        select(TeacherSubject.reference_value_id).where(TeacherSubject.teacher_id == teacher.id)
-    ).scalars()
-    classes = db.execute(select(TeacherClass.reference_value_id).where(TeacherClass.teacher_id == teacher.id)).scalars()
-    quals = db.execute(select(TeacherQualification).where(TeacherQualification.teacher_id == teacher.id)).scalars()
+    own = (links or _teacher_links(db, [teacher.id]))[teacher.id]
+    subjects, classes, quals = own["subjects"], own["classes"], own["quals"]
     today = clock.local_date(get_district(db).time_zone)
     return {
         "id": teacher.id,
@@ -276,6 +280,24 @@ def teacher_out(db: Session, teacher: Teacher, user: User | None = None, refs: d
         "custom": teacher.custom or {},
         "version": teacher.version,
     }
+
+
+def _teacher_links(db: Session, ids: list[int]) -> dict[int, dict[str, list]]:
+    """Subjects, classes and qualifications of these teachers, three queries for a whole page."""
+    links: dict[int, dict[str, list]] = {i: {"subjects": [], "classes": [], "quals": []} for i in ids}
+    if not ids:
+        return links
+    for tid, ref in db.execute(
+        select(TeacherSubject.teacher_id, TeacherSubject.reference_value_id).where(TeacherSubject.teacher_id.in_(ids))
+    ):
+        links[tid]["subjects"].append(ref)
+    for tid, ref in db.execute(
+        select(TeacherClass.teacher_id, TeacherClass.reference_value_id).where(TeacherClass.teacher_id.in_(ids))
+    ):
+        links[tid]["classes"].append(ref)
+    for q in db.execute(select(TeacherQualification).where(TeacherQualification.teacher_id.in_(ids))).scalars():
+        links[q.teacher_id]["quals"].append(q)
+    return links
 
 
 def _teacher_fields(db: Session, teacher: Teacher, user: User) -> dict[str, Any]:
@@ -529,7 +551,10 @@ def list_teachers(
         query = query.where(School.cluster_id == cluster_id)
     rows, total = paginate(db, query, page, page_size)
     refs = _reference_map(db)
-    return {"items": [teacher_out(db, t, u, refs) for t, u in rows], "total": total, "page": page}
+    preload(db, School, {t.school_id for t, _ in rows})
+    preload(db, Cluster, {db.get(School, t.school_id).cluster_id for t, _ in rows})
+    links = _teacher_links(db, [t.id for t, _ in rows])
+    return {"items": [teacher_out(db, t, u, refs, links) for t, u in rows], "total": total, "page": page}
 
 
 # Supervisors ----------------------------------------------------------------------

@@ -22,7 +22,7 @@ FILTER_LABELS = {
     "report_id": ("Ministry report", "تقرير الوزارة"),
     "report_version_id": ("Ministry report version", "إصدار تقرير الوزارة"),
     "form_id": ("Form", "النموذج"),
-    "cluster_id": ("Cluster", "المجموعة"),
+    "cluster_id": ("Cluster", "المجمع"),
     "school_id": ("School", "المدرسة"),
     "supervisor_id": ("Supervisor", "الموجّه"),
     "date_from": ("From", "من"),

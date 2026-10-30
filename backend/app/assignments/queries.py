@@ -5,6 +5,7 @@ from datetime import date
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.db import per_session
 from app.models import Supervisor, SupervisorAssignment
 
 
@@ -30,7 +31,11 @@ def open_count(db: Session, day: date, *, school_id: int | None = None, supervis
 
 
 def supervisor_for_user(db: Session, user_id: int) -> Supervisor | None:
-    return db.execute(select(Supervisor).where(Supervisor.user_id == user_id)).scalar_one_or_none()
+    return per_session(
+        db,
+        f"supervisor:{user_id}",
+        lambda: db.execute(select(Supervisor).where(Supervisor.user_id == user_id)).scalar_one_or_none(),
+    )
 
 
 def school_ids_for_supervisor(db: Session, supervisor_id: int, day: date | None = None) -> set[int]:

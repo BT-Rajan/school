@@ -20,7 +20,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.db import session_factory
+from app.db import preload, session_factory
 
 log = logging.getLogger(__name__)
 
@@ -92,20 +92,38 @@ class Broadcaster:
         connections = self.connected()
         if not connections:
             return
+        from app.models import User
+
         with session_factory()() as db:
+            # One query for everyone connected, and one decision per person and event, however
+            # many tabs and devices they have open (section 15: delivery under 2 s).
+            preload(db, User, {c.user_id for c in connections})
             for event in events:
+                decided = self._audience(db, connections, event)
+                message = (
+                    {"type": "notification"}
+                    if event["entity"] == "notification"
+                    else {"type": "changed", "entity": event["entity"], "id": event["id"]}
+                )
                 for connection in connections:
-                    if self._may_see(db, connection.user_id, event):
-                        message = (
-                            {"type": "notification"}
-                            if event["entity"] == "notification"
-                            else {
-                                "type": "changed",
-                                "entity": event["entity"],
-                                "id": event["id"],
-                            }
-                        )
-                        connection.loop.call_soon_threadsafe(connection.outbox.put_nowait, message)
+                    if connection.user_id not in decided:
+                        decided[connection.user_id] = self._may_see(db, connection.user_id, event)
+                    if decided[connection.user_id]:
+                        connection.loop.call_soon_threadsafe(connection.outbox.put_nowait, dict(message))
+
+    def _audience(self, db: Session, connections: list[Connection], event: dict[str, Any]) -> dict[int, bool]:
+        """Decisions for everyone at once where the record's rule allows it: scanned reports, the
+        busiest and most sensitive. Anything else is decided person by person."""
+        if event["entity"] != "document" or event["user_id"] is not None:
+            return {}
+        from app.auth.deps import Principal
+        from app.documents import access
+        from app.models import User, UserStatus
+
+        users = {c.user_id: db.get(User, c.user_id) for c in connections}
+        principals = [Principal(u, None) for u in users.values() if u is not None and u.status == UserStatus.ACTIVE]
+        allowed = access.audience(db, principals, int(event["id"]))
+        return {user_id: user_id in allowed for user_id in users}
 
     def _may_see(self, db: Session, user_id: int, event: dict[str, Any]) -> bool:
         if event["user_id"] is not None:

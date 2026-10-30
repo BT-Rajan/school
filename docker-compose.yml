@@ -26,6 +26,9 @@ x-backend-env: &backend-env
   SCES_VAPID_PRIVATE_KEY: ${SCES_VAPID_PRIVATE_KEY:-}
   SCES_VAPID_SUBJECT: ${SCES_VAPID_SUBJECT:-mailto:admin@example.org}
   SCES_CLAMD_HOST: clamav
+  # API rate limits per minute (section 15). Raise them only for a load test or a scan.
+  SCES_RATE_LIMIT_USER_PER_MINUTE: ${SCES_RATE_LIMIT_USER_PER_MINUTE:-300}
+  SCES_RATE_LIMIT_IP_PER_MINUTE: ${SCES_RATE_LIMIT_IP_PER_MINUTE:-1000}
 
 services:
   db:

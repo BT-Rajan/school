@@ -97,7 +97,7 @@ export default function Notifications() {
         <h2>{t("notifications.preferences")}</h2>
         <p className="hint">{t("notifications.preferencesHint")}</p>
         <ErrorMessage error={prefs.error ?? setPref.error} />
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
           <table>
             <thead>
               <tr>

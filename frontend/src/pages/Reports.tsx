@@ -66,7 +66,7 @@ export default function Reports() {
         </label>
       </div>
       <ErrorMessage error={list.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

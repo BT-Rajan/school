@@ -46,7 +46,7 @@ function StaffTable({ kind, title, newLabel }: { kind: Kind; title: string; newL
         <button className="primary" type="button" onClick={() => setCreating(true)}>{newLabel}</button>
       </div>
       <ErrorMessage error={list.error ?? act.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

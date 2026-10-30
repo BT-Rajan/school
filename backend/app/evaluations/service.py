@@ -16,6 +16,7 @@ from app import clock
 from app.assignments import queries as assignments
 from app.audit import service as audit
 from app.auth.deps import Principal
+from app.db import preload
 from app.district import get_district
 from app.errors import AppError, invalid, not_found
 from app.files import service as files
@@ -118,6 +119,14 @@ def can_read(db: Session, principal: Principal, e: Evaluation) -> bool:
         school = db.get(School, e.school_id)
         return school.cluster_id in (managed_cluster_ids(db, principal) or [])
     return False
+
+
+def _deny_unassigned(db: Session, school_id: int) -> None:
+    """Section 18: a supervisor not assigned to the school gets 403, and the denial is audited."""
+    audit.record_denial(
+        "evaluation.school", entity_type="school", entity_id=school_id, reason="not_assigned", request_db=db
+    )
+    raise AppError(403, "school_not_assigned")
 
 
 def visible_query(db: Session, principal: Principal) -> Select:
@@ -342,7 +351,7 @@ def start(db: Session, principal: Principal, body: StartIn) -> Evaluation:
     _, report = _form_parts(db, form)
     today = _today(db)
     if body.school_id not in assignments.school_ids_for_supervisor(db, supervisor.id, today):
-        deny(db, "school", body.school_id)
+        _deny_unassigned(db, body.school_id)
     if report.subject_type == "teacher":
         teacher = db.get(Teacher, body.teacher_id) if body.teacher_id else None
         if teacher is None or teacher.school_id != body.school_id or teacher.status != "active":
@@ -550,6 +559,10 @@ def list_evaluations(
     page_size: int = 50,
 ) -> dict[str, Any]:
     query = visible_query(db, principal).order_by(Evaluation.id.desc())
+    if school_id and principal.role == Role.SUPERVISOR:
+        own = _own_supervisor(db, principal)
+        if school_id not in assignments.school_ids_for_supervisor(db, own.id):
+            _deny_unassigned(db, school_id)
     if status:
         query = query.where(Evaluation.status == status)
     if school_id:
@@ -557,7 +570,25 @@ def list_evaluations(
     if form_id:
         query = query.where(Evaluation.form_version_id == form_id)
     rows, total = paginate(db, query, page, page_size)
-    return {"items": [evaluation_out(db, e, full=False) for (e,) in rows], "total": total, "page": page}
+    found = [e for (e,) in rows]
+    preload_for(db, found)
+    return {"items": [evaluation_out(db, e, full=False) for e in found], "total": total, "page": page}
+
+
+def preload_for(db: Session, found: list[Evaluation]) -> None:
+    """Everything evaluation_out looks up for a page of evaluations, in a few queries."""
+    preload(db, FormVersion, {e.form_version_id for e in found})
+    preload(
+        db, MinistryReportVersion, {db.get(FormVersion, e.form_version_id).ministry_report_version_id for e in found}
+    )
+    mrvs = {db.get(FormVersion, e.form_version_id).ministry_report_version_id for e in found}
+    preload(db, MinistryReport, {db.get(MinistryReportVersion, m).ministry_report_id for m in mrvs})
+    preload(db, School, {e.school_id for e in found})
+    preload(db, Supervisor, {e.supervisor_id for e in found})
+    preload(db, Teacher, {e.teacher_id for e in found})
+    users = {db.get(Supervisor, e.supervisor_id).user_id for e in found}
+    users |= {db.get(Teacher, e.teacher_id).user_id for e in found if e.teacher_id}
+    preload(db, User, users)
 
 
 def cluster_of(db: Session, e: Evaluation) -> Cluster:

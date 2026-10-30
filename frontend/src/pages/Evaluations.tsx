@@ -46,7 +46,7 @@ export default function Evaluations() {
           options={["draft", "submitted", "amended", "cancelled"].map((s) => ({ value: s, label: t(`status.${s}`) }))} />
       </div>
       <ErrorMessage error={list.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

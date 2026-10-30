@@ -214,7 +214,7 @@ function Editor({ id, isAdmin, onChanged, onActivated }: { id: number; isAdmin: 
       {examples.length === 0 ? (
         <p className="hint">{t("scoring.noExamples")}</p>
       ) : (
-        <div className="table-wrap">
+        <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

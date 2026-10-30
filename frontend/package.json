@@ -25,6 +25,7 @@
     "@types/react": "18.3.17",
     "@types/react-dom": "18.3.5",
     "@vitejs/plugin-react": "5.2.0",
+    "axe-core": "^4.10.2",
     "jsdom": "26.1.0",
     "typescript": "5.7.2",
     "vite": "7.3.7",

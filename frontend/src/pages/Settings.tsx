@@ -198,7 +198,7 @@ export default function Settings() {
         <div className="card">
           <h2>{t("settings.groups.notifications")}</h2>
           <p className="hint">{t("settings.noticeDefaultsHint")}</p>
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -236,7 +236,7 @@ export default function Settings() {
         <ErrorMessage error={unlock.error} />
         {locked.data?.length === 0 && <p>{t("settings.noneLocked")}</p>}
         {!!locked.data?.length && (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <tbody>
                 {locked.data.map((u) => (
@@ -257,7 +257,7 @@ export default function Settings() {
         <h2>{t("settings.failed")}</h2>
         {failed.data?.length === 0 && <p>{t("settings.noneFailed")}</p>}
         {!!failed.data?.length && (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <thead><tr><th>{t("settings.when")}</th><th>{t("settings.who")}</th><th>{t("settings.what")}</th><th>IP</th></tr></thead>
               <tbody>

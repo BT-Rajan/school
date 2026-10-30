@@ -95,7 +95,7 @@ export default function Imports() {
             </div>
           )}
           <ErrorMessage error={commit.error} />
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <thead>
                 <tr>

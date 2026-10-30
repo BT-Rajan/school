@@ -130,7 +130,7 @@ export default function Schools() {
         </select>
       </div>
       <ErrorMessage error={list.error ?? toggle.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>

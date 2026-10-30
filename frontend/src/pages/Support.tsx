@@ -63,7 +63,7 @@ export default function Support() {
         <ErrorMessage error={found.error ?? exportData.error} />
         {found.data && found.data.length === 0 && <p className="hint">{t("search.none")}</p>}
         {!!found.data?.length && (
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <tbody>
                 {found.data.map((u) => (

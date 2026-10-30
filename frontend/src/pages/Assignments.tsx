@@ -48,7 +48,7 @@ export default function Assignments() {
       <ErrorMessage error={clusters.error ?? board.error} />
       {board.data && (
         <div className="board">
-          <div className="table-wrap">
+          <div className="table-wrap" tabIndex={0}>
             <table>
               <thead>
                 <tr>
@@ -279,7 +279,7 @@ function HistoryDialog({ school, onClose }: { school: School; onClose: () => voi
   return (
     <Modal title={`${t("assignments.history")} · ${school.name}`} onClose={onClose}>
       <ErrorMessage error={history.error} />
-      <div className="table-wrap">
+      <div className="table-wrap" tabIndex={0}>
         <table>
           <thead>
             <tr>
