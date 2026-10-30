@@ -41,6 +41,9 @@ class Settings(BaseSettings):
 
     # Encrypted file objects (FR-FS1), on a volume outside the web root.
     storage_path: str = "/var/lib/sces/files"
+    # The built web app (frontend/dist), served by the API itself when there is no Caddy in
+    # front (install.sh). Empty: the API serves /api only.
+    web_root: str = ""
 
     # Virus scanning (FR-FS3). "clamd" is required in production; "none" is for development only.
     virus_scanner: str = "clamd"

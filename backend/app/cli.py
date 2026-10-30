@@ -55,8 +55,9 @@ def _create(role: Role, args) -> None:
             staff_id=getattr(args, "staff_id", None),
             locale=args.locale,
             created_by=None,
+            invite=False,
         )
-        # Printed as well as emailed, since mail may not be set up yet on a new server.
+        # One invitation, printed as well as emailed, since mail may not be set up yet on a new server.
         token = auth.create_invitation(db, user, None)
         db.commit()
         print(f"Invitation for {user.email}: {get_settings().public_base_url}/invite/{token}")

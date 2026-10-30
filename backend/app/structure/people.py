@@ -75,6 +75,7 @@ def create_user(
     locale: str | None,
     created_by: int | None,
     send_at: datetime | None = None,
+    invite: bool = True,
 ) -> User:
     email = auth.normalize_email(email)
     if db.execute(select(User.id).where(User.email == email)).first():
@@ -93,7 +94,8 @@ def create_user(
     db.add(user)
     db.flush()
     audit.record(db, "user.created", entity_type="user", entity_id=user.id, after={"role": role, "staff_id": staff_id})
-    auth.create_invitation(db, user, created_by, send_at=send_at)
+    if invite:
+        auth.create_invitation(db, user, created_by, send_at=send_at)
     return user
 
 

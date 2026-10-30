@@ -27,3 +27,16 @@ def test_grants_sql_keeps_audit_insert_only(capsys):
     output = capsys.readouterr().out
     assert "GRANT SELECT, INSERT ON `sces`.`audit_log`" in output
     assert "GRANT SELECT, INSERT, UPDATE, DELETE ON `sces`.`users`" in output
+
+
+def test_create_admin_sends_one_invitation_and_prints_it(capsys, db):
+    from app.models import Invitation, MailMessage, User
+
+    cli_main(["create-admin", "--email", "first.admin@example.org", "--name", "First Admin", "--staff-id", "FA1"])
+    link = capsys.readouterr().out.strip().rsplit(" ", 1)[-1]
+    user = db.execute(select(User).where(User.email == "first.admin@example.org")).scalar_one()
+    invitations = list(db.execute(select(Invitation).where(Invitation.user_id == user.id)).scalars())
+    # The printed link is the emailed one: a single invitation, still open.
+    assert len(invitations) == 1 and invitations[0].revoked_at is None and "/invite/" in link
+    mails = db.execute(select(func.count()).select_from(MailMessage).where(MailMessage.user_id == user.id)).scalar_one()
+    assert mails == 1

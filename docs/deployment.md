@@ -3,6 +3,57 @@
 How to install the School Cluster Evaluation System on the district's own
 server. One installation serves one district (requirements section 2).
 
+There are two ways: Docker Compose (sections 1 to 9 below), or `install.sh` on a server that
+already has MariaDB and pm2 (section 0).
+
+## 0. Install with install.sh (MariaDB and pm2, no Docker)
+
+Needs: Ubuntu or Debian; MariaDB 10.6 or later (or MySQL 8) with an empty database and a
+user that has all rights on it; Python 3.12 or later; Node.js 20.19 or later. Run as root (with
+`sudo`), so the script can install what is missing (pm2, ClamAV) and set pm2 to start on boot.
+
+From a checkout of this repository:
+
+```bash
+sudo DB_PASSWORD='the database password' ./install.sh
+```
+
+The defaults are in the first lines of the script: `/apps/school`, port 8388, database
+`school` on `127.0.0.1:3306`, user `app_user`. Each can be overridden the same way as
+`DB_PASSWORD`, for example `DB_HOST=10.0.0.5`. Useful on the first run:
+
+- `ADMIN_EMAIL=you@example.org ADMIN_NAME='Your Name'` invites the first District Admin and
+  prints the link.
+- `PUBLIC_URL=https://sces.example.org` when an HTTPS reverse proxy is in front of port 8388.
+  Without HTTPS, phones cannot install the app, use the camera scanner, work offline or get
+  push notices.
+- `MAIL_PROVIDER=smtp SMTP_HOST=... SMTP_USERNAME=... SMTP_PASSWORD=...`, or the `GMAIL_*`
+  values (section 4). Until mail is set, nobody but the first admin can sign in.
+
+What it does:
+
+1. Copies the code to `/apps/school`.
+2. Writes `/apps/school/.env`, readable by its owner only. On the first run it generates the
+   keys; keep a copy of this file with the backups.
+3. Installs the Python packages and builds the web app.
+4. Converts the database to utf8mb4 if needed, and migrates it.
+5. Creates the district record.
+6. Installs ClamAV, listening on 127.0.0.1:3310.
+7. Starts `sces-api` (the API and the web app on port 8388) and `sces-worker` under pm2, and
+   saves them for reboot.
+
+To upgrade, pull the new code and run `sudo ./install.sh` again. The password, keys and files
+are kept.
+
+Differences from the Compose install:
+
+- The database user has all rights on its database, so the audit log is not insert-only at the
+  database level (FR-L3). The daily hash-chain check still detects any change. To restore
+  insert-only, have a database administrator apply `python -m app.cli grants-sql` to a
+  separate application user.
+- `deploy/backup.sh` uses Docker. Back up with `mariadb-dump` of the database and a copy of
+  `/apps/school/data/files` and `/apps/school/.env`, taken together (section 5 explains why).
+
 ## 1. Server requirements
 
 - A Linux server with Docker Engine and the Docker Compose plugin.

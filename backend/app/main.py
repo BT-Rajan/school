@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm.exc import StaleDataError
 
-from app import context
+from app import context, web
 from app.api import (
     admin,
     assignments,
@@ -112,6 +112,9 @@ def create_app() -> FastAPI:
         admin,
     ):
         app.include_router(module.router)
+    if settings.web_root:
+        # Last, so every /api route is matched first.
+        web.mount(app, settings.web_root)
     return app
 
 
