@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import BaseModel, EmailStr, Field
@@ -6,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app import clock
+from app.admin import support
 from app.audit import service as audit
 from app.auth import service
 from app.auth.deps import CSRF_COOKIE, SESSION_COOKIE, Principal, current_principal
@@ -26,6 +28,10 @@ class MeOut(BaseModel):
     locale: str
     mfa_method: str
     totp_required: bool
+    # FR-AD3: support views of this account not yet shown to its owner.
+    support_notices: list[dict[str, Any]] = []
+    # Set while an admin is viewing this account read-only.
+    support_view: dict[str, Any] | None = None
 
 
 def me_out(db: Session, user: User) -> MeOut:
@@ -37,6 +43,7 @@ def me_out(db: Session, user: User) -> MeOut:
         locale=user.locale,
         mfa_method=user.mfa_method,
         totp_required=service.totp_required(db, user),
+        support_notices=support.notices(db, user),
     )
 
 
@@ -123,7 +130,16 @@ def logout(response: Response, principal: Principal = Depends(current_principal)
 
 @router.get("/me", response_model=MeOut)
 def me(principal: Principal = Depends(current_principal), db: Session = Depends(get_db)):
-    return me_out(db, principal.user)
+    out = me_out(db, principal.user)
+    if principal.support_admin is not None:
+        # The admin sees the screens, not the person's own notices about support views.
+        out.support_view, out.support_notices = {"admin": principal.support_admin.name}, []
+    return out
+
+
+@router.post("/me/support-notices/seen", status_code=204)
+def support_notices_seen(principal: Principal = Depends(current_principal), db: Session = Depends(get_db)):
+    support.mark_shown(db, principal.user)
 
 
 class MeUpdateIn(BaseModel):

@@ -19,12 +19,15 @@ SESSION_COOKIE = "sces_session"
 CSRF_COOKIE = "sces_csrf"
 CSRF_HEADER = "X-CSRF-Token"
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+SUPPORT_HEADER = "X-Support-Session"
 
 
 @dataclass
 class Principal:
     user: User
     session: UserSession
+    # Set during an admin's read-only support view (FR-AD3): user is the person being viewed.
+    support_admin: User | None = None
 
     @property
     def role(self) -> Role:
@@ -44,6 +47,13 @@ def current_principal(request: Request, db: Session = Depends(get_db)) -> Princi
     ctx = context.current()
     ctx.actor_id = user.id
     ctx.actor_role = user.role
+    support_id = request.headers.get(SUPPORT_HEADER)
+    if support_id is not None:
+        from app.admin import support  # imports scope helpers that use Principal
+
+        # The admin stays the actor in the audit log; the answers are the viewed user's.
+        viewed = support.resolve(db, user, support_id, request.method, request.url.path)
+        return Principal(viewed, session, support_admin=user)
     return Principal(user, session)
 
 

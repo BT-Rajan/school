@@ -44,6 +44,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   // A different person signing in on a shared phone starts with a clean device.
   useEffect(() => {
     if (!me || !meQuery.isSuccess || meQuery.isFetching) return;
+    // An admin's support view shows another account on the admin's own device: not a new owner.
+    if (me.support_view) return;
     const owner = readOwner();
     if (owner !== null && owner !== String(me.id)) void wipeDevice().then(() => writeOwner(me.id));
     else if (owner === null) writeOwner(me.id);
@@ -57,7 +59,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       appliedFor.current = null;
       return;
     }
-    if (appliedFor.current !== me.id) {
+    if (appliedFor.current !== me.id && !me.support_view) {
       appliedFor.current = me.id;
       if (me.locale !== i18n.language) setLocale(me.locale);
     }

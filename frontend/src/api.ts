@@ -1,4 +1,5 @@
 /** JSON API client. Errors carry the server's stable code, which the UI translates. */
+import { endSupportView, SUPPORT_HEADER, supportView } from "./support";
 
 export class ApiError extends Error {
   constructor(
@@ -22,6 +23,16 @@ async function request(path: string, { method = "GET", body, form, raw }: Option
   if (method !== "GET") headers["X-CSRF-Token"] = csrfToken();
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (raw !== undefined) headers["Content-Type"] = "application/octet-stream";
+  const support = supportView();
+  if (support) {
+    // FR-AD3: a support view only reads, as the user being viewed. Nothing else is sent from
+    // their screens, so nothing happens under the admin's own name by mistake either; ending
+    // the view and signing out are the only ways out.
+    if (method === "GET" || method === "HEAD") headers[SUPPORT_HEADER] = String(support.id);
+    else if (!path.startsWith("/api/admin/support-sessions/") && path !== "/api/auth/logout") {
+      throw new ApiError(403, "support_read_only");
+    }
+  }
   let response: Response;
   try {
     response = await fetch(path, {
@@ -42,6 +53,11 @@ async function request(path: string, { method = "GET", body, form, raw }: Option
       detail = data?.error?.detail;
     } catch {
       // Not JSON, for example a proxy error page.
+    }
+    if (code === "support_session_invalid" && support) {
+      // The view ended or ran out: back to the admin's own screens.
+      endSupportView();
+      window.location.assign("/support");
     }
     throw new ApiError(response.status, code, detail);
   }

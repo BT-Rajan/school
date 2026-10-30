@@ -1,8 +1,12 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 
+import { api } from "./api";
 import { LanguageSwitch } from "./components";
+import { formatDateTime } from "./format";
+import { endSupportView, supportView } from "./support";
 import Account from "./pages/Account";
 import Assignments from "./pages/Assignments";
 import Clusters from "./pages/Clusters";
@@ -26,7 +30,9 @@ import Requests from "./pages/Requests";
 import Reports from "./pages/Reports";
 import ResetPassword from "./pages/ResetPassword";
 import Schools from "./pages/Schools";
+import AuditLog from "./pages/AuditLog";
 import Scoring from "./pages/Scoring";
+import Support from "./pages/Support";
 import Search from "./pages/Search";
 import StandardReports from "./pages/StandardReports";
 import Settings from "./pages/Settings";
@@ -64,8 +70,30 @@ const NAV: { to: string; key: string; roles?: Role[] }[] = [
   { to: "/custom-fields", key: "nav.customFields", roles: ADMIN },
   { to: "/imports", key: "nav.imports", roles: MANAGERS },
   { to: "/settings", key: "nav.settings", roles: ADMIN },
+  { to: "/audit", key: "nav.audit", roles: ADMIN },
+  { to: "/support", key: "nav.support", roles: ADMIN },
   { to: "/account", key: "nav.account" },
 ];
+
+/** FR-AD3: whose screens these are, read only, and the way back. */
+function SupportBanner() {
+  const { t } = useTranslation();
+  const { me, district } = useSession();
+  const client = useQueryClient();
+  const view = supportView();
+  const end = async () => {
+    if (view) await api(`/api/admin/support-sessions/${view.id}/end`, { method: "POST" }).catch(() => undefined);
+    endSupportView();
+    client.clear();
+    window.location.assign("/support");
+  };
+  return (
+    <div className="support-banner" role="status">
+      {t("support.banner", { name: me?.name, at: view ? formatDateTime(view.expires_at, district?.time_zone ?? "UTC") : "" })}{" "}
+      <button type="button" onClick={() => void end()}>{t("support.end")}</button>
+    </div>
+  );
+}
 
 /** FR-RP1: search from any screen. */
 function HeaderSearch() {
@@ -122,6 +150,7 @@ function Shell({ children }: { children: ReactNode }) {
           </>
         )}
       </header>
+      {me?.support_view && <SupportBanner />}
       {me && (
         <nav className="nav" aria-label={t("nav.menu")}>
           {NAV.filter((item) => !item.roles || item.roles.includes(me.role)).map((item) => (
@@ -164,6 +193,8 @@ export default function App() {
         <Route path="/reference" element={<Protected roles={ADMIN}><ReferenceLists /></Protected>} />
         <Route path="/custom-fields" element={<Protected roles={ADMIN}><CustomFields /></Protected>} />
         <Route path="/settings" element={<Protected roles={ADMIN}><Settings /></Protected>} />
+        <Route path="/audit" element={<Protected roles={ADMIN}><AuditLog /></Protected>} />
+        <Route path="/support" element={<Protected roles={ADMIN}><Support /></Protected>} />
         <Route path="/assignments" element={<Protected roles={MANAGERS}><Assignments /></Protected>} />
         <Route path="/forms" element={<Protected roles={FORM_BUILDERS}><Forms /></Protected>} />
         <Route path="/forms/:id" element={<Protected roles={FORM_BUILDERS}><FormEditor /></Protected>} />

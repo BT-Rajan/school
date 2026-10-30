@@ -70,6 +70,31 @@ interface TeacherDash {
 }
 type Dash = AdminDash | HeadDash | SupervisorDash | TeacherDash;
 
+/** FR-AD3: admins who viewed this account's screens, shown once at the next sign-in. */
+function SupportNotices() {
+  const { t } = useTranslation();
+  const { me, district, refresh } = useSession();
+  const tz = district?.time_zone ?? "UTC";
+  const seen = async () => {
+    await api("/api/auth/me/support-notices/seen", { method: "POST" });
+    await refresh();
+  };
+  return (
+    <div className="alert alert-warn" role="alert">
+      <p>{t("support.noticeTitle")}</p>
+      <ul>
+        {me!.support_notices!.map((n) => (
+          <li key={n.id}>
+            {t("support.noticeLine", { admin: n.admin, from: formatDateTime(n.started_at, tz), to: formatDateTime(n.ended_at, tz) })}{" "}
+            <span dir="auto">“{n.reason}”</span>
+          </li>
+        ))}
+      </ul>
+      <button type="button" onClick={() => void seen()}>{t("support.noticeOk")}</button>
+    </div>
+  );
+}
+
 function Stat({ label, value, to, warn }: { label: string; value: number | string; to?: string; warn?: boolean }) {
   const body = (
     <>
@@ -114,6 +139,7 @@ export default function Home() {
           ))}
         </div>
       </div>
+      {!!me.support_notices?.length && <SupportNotices />}
       {data?.role === "district_admin" && <Admin d={data} />}
       {data?.role === "cluster_head" && <Head d={data} />}
       {data?.role === "supervisor" && <Supervisor d={data} />}

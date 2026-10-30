@@ -28,6 +28,11 @@ FILTER_LABELS = {
     "date_from": ("From", "من"),
     "date_to": ("To", "إلى"),
     "group": ("Grouped by", "التجميع حسب"),
+    "actor_id": ("Actor ID", "رقم المنفّذ"),
+    "action": ("Action", "الإجراء"),
+    "entity_type": ("Entity", "الكيان"),
+    "entity_id": ("Entity ID", "رقم الكيان"),
+    "severity": ("Severity", "الأهمية"),
 }
 WORDS = {
     "en": {

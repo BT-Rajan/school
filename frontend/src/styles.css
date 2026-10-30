@@ -238,3 +238,11 @@ a.stat:hover { border-color: var(--primary); }
 .inline-list { list-style: none; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
 .header-search input { min-inline-size: 12rem; max-inline-size: 100%; }
 @media (max-width: 600px) { .header-search { flex: 1 1 100%; } .header-search input { inline-size: 100%; } }
+
+/* Admin tools (FR-AD1, FR-AD3, FR-L5). */
+.logo-preview { display: block; max-block-size: 64px; margin-block: 8px; }
+.support-banner { background: #7a1f1f; color: #fff; padding: 8px 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+.support-banner button { background: #fff; color: #7a1f1f; }
+.audit-warning td:first-child { border-inline-start: 4px solid #f0a500; }
+.audit-critical td:first-child { border-inline-start: 4px solid var(--danger); }
+pre { white-space: pre-wrap; word-break: break-word; margin: 0; font-size: 0.85rem; }

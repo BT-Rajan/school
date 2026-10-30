@@ -8,6 +8,7 @@ from sqlalchemy.orm.exc import StaleDataError
 
 from app import context
 from app.api import (
+    admin,
     assignments,
     auth,
     documents,
@@ -108,6 +109,7 @@ def create_app() -> FastAPI:
         uploads,
         scoring,
         reporting,
+        admin,
     ):
         app.include_router(module.router)
     return app

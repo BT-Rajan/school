@@ -8,6 +8,10 @@ export interface Me {
   locale: "en" | "ar";
   mfa_method: "email" | "totp";
   totp_required: boolean;
+  /** FR-AD3: admins' support views of this account, shown once at sign-in. */
+  support_notices?: { id: number; admin: string; reason: string; started_at: string; ended_at: string }[];
+  /** Set while an admin views this account read-only. */
+  support_view?: { admin: string } | null;
 }
 
 export interface District {

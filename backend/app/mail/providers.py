@@ -24,6 +24,8 @@ class OutgoingMail:
     subject: str
     text: str
     html: str
+    # The district's sender name, when an admin has set one (FR-AD1).
+    sender_name: str | None = None
 
 
 class MailProvider(Protocol):
@@ -34,7 +36,7 @@ class MailProvider(Protocol):
 
 def build_mime(mail: OutgoingMail, settings: Settings) -> EmailMessage:
     message = EmailMessage()
-    message["From"] = formataddr((settings.mail_sender_name, settings.mail_sender))
+    message["From"] = formataddr((mail.sender_name or settings.mail_sender_name, settings.mail_sender))
     message["To"] = mail.to
     message["Subject"] = mail.subject
     message.set_content(mail.text)

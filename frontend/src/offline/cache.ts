@@ -6,6 +6,7 @@
  */
 import type { QueryClient } from "@tanstack/react-query";
 
+import { supportView } from "../support";
 import * as store from "./db";
 
 const KEPT = new Set([
@@ -41,7 +42,8 @@ export function kept(key: readonly unknown[]): boolean {
 /** Restore saved data, then keep saving whatever loads. */
 export async function persist(client: QueryClient): Promise<void> {
   try {
-    const saved = (await store.all<Saved>("kv")).filter((s) => s && Array.isArray(s.key));
+    // A support view starts empty: the admin's own saved screens are not the viewed user's.
+    const saved = supportView() ? [] : (await store.all<Saved>("kv")).filter((s) => s && Array.isArray(s.key));
     for (const s of saved) client.setQueryData(s.key, s.data, { updatedAt: s.at });
   } catch {
     // An unreadable store just means starting without offline data.
@@ -49,7 +51,8 @@ export async function persist(client: QueryClient): Promise<void> {
   client.getQueryCache().subscribe((event) => {
     if (event.type !== "updated" || event.action.type !== "success") return;
     const key = event.query.queryKey as unknown[];
-    if (!kept(key)) return;
+    // Another user's screens, seen in a support view, are never kept on the device (FR-AD3).
+    if (!kept(key) || supportView()) return;
     const data = event.query.state.data;
     if (data === undefined) return;
     void store.put("kv", id(key), { key, data, at: Date.now() } satisfies Saved).catch(() => undefined);

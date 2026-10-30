@@ -12,6 +12,7 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app import clock
+from app.district import get_district
 from app.errors import invalid, not_found
 from app.mail import queue as mail
 from app.mail.templates import NOTICES, notice_text
@@ -30,7 +31,12 @@ def _enabled(db: Session, user_id: int, type_: str, channel: str) -> bool:
             NotificationPreference.channel == channel,
         )
     ).scalar_one_or_none()
-    return True if pref is None else pref
+    return default(db, type_, channel) if pref is None else pref
+
+
+def default(db: Session, type_: str, channel: str) -> bool:
+    """The district's default for a notice and channel, for users who have not chosen (FR-AD1)."""
+    return bool((get_district(db).setting("notification_defaults") or {}).get(type_, {}).get(channel, True))
 
 
 def notify(db: Session, user_id: int, type_: str, payload: dict[str, Any]) -> None:
@@ -108,7 +114,7 @@ def preferences(db: Session, user_id: int) -> list[dict[str, Any]]:
         (p.type, p.channel): p.enabled
         for p in db.execute(select(NotificationPreference).where(NotificationPreference.user_id == user_id)).scalars()
     }
-    return [{"type": t, **{c: stored.get((t, c), True) for c in CHANNELS}} for t in NOTICES]
+    return [{"type": t, **{c: stored.get((t, c), default(db, t, c)) for c in CHANNELS}} for t in NOTICES]
 
 
 def set_preference(db: Session, user_id: int, type_: str, channel: str, enabled: bool) -> None:

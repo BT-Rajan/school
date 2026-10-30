@@ -36,6 +36,7 @@ from app.models.structure import (
     TeacherSubject,
     TeacherTransfer,
 )
+from app.models.support import SupportSession
 from app.models.uploads import UploadSession
 from app.models.user import User
 
@@ -84,6 +85,7 @@ __all__ = [
     "Supervisor",
     "SupervisorAssignment",
     "SupervisorClusterMove",
+    "SupportSession",
     "Teacher",
     "TeacherRequest",
     "TeacherClass",

@@ -24,6 +24,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "storage_quota_mb_per_user": 2048,
     "document_retention_years": 7,
     "acknowledge_overdue_days": 7,
+    # Empty means the server's configured sender name (SCES_MAIL_SENDER_NAME).
+    "mail_sender_name": "",
+    # Notice type -> channel -> on/off, for users who have not chosen (FR-AD1). Missing means on.
+    "notification_defaults": {},
+    "logo_file_id": None,
 }
 
 

@@ -150,7 +150,10 @@ def dispatch(db: Session, provider: MailProvider | None = None, max_messages: in
             break
         rendered = render(message.template, message.locale, message.context or {})
         try:
-            provider_id = provider.send(OutgoingMail(message.recipient, rendered.subject, rendered.text, rendered.html))
+            sender = get_district(db).setting("mail_sender_name") or None
+            provider_id = provider.send(
+                OutgoingMail(message.recipient, rendered.subject, rendered.text, rendered.html, sender_name=sender)
+            )
         except Exception as exc:  # noqa: BLE001 - any provider failure is retried
             log.warning("mail %s failed: %s", message.id, exc)
             message.error = str(exc)[:500]
