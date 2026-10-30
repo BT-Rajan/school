@@ -531,6 +531,132 @@ system in production.
 
 **Release:** production go-live.
 
+**Status (Oct 30, 2026): built and verified; waiting on the district for the formula, the external penetration test, devices and sign-off**
+
+Built:
+
+- Scoring rule sets per form version:
+  - points per option, value or ranges for numbers;
+  - question and section weights, and what a missing answer counts;
+  - bands such as "Excellent from 90%".
+  - Arithmetic is decimal, rounded once at the end.
+  - A rule set cannot be activated until every worked example it carries gives the expected
+    score.
+  - Scores are worked out on the server at submission and amendment, and shown on the
+    evaluation, its PDF, dashboards and exports.
+  - A recalculation is a recorded job, with each changed score audited.
+- Dashboards per role:
+  - admins: the inbox, overdue reports, coverage per active report, mail, storage and the
+    audit check;
+  - Cluster Heads: their clusters;
+  - supervisors: their own work and missing reports.
+- Standard reports, on screen and as Excel and PDF in English or Arabic, all audited:
+  evaluations by school, scanned reports by school or supervisor, request completion, and raw
+  answers by form.
+- Global search over schools, teachers, supervisors, evaluations and report details, within
+  each role's lists.
+- A ZIP of up to 200 scanned reports for an admin. It is watermarked with the admin's name,
+  stored encrypted, and only the requesting admin can download it.
+- The audit viewer, with filters and an audited Excel export.
+- Settings: languages, which roles must use an authenticator, the sender name, notification
+  defaults, audit retention, and the district's logo.
+- Admin tools: locked accounts and failed sign-ins, and a "Reset sign-in method" button on
+  every staff list.
+- A read-only support view of a user's screens. It needs a reason, lasts at most 30 minutes,
+  audits each page viewed, and the user is told at their next sign-in.
+- An export of everything held about a person.
+- Operations:
+  - 11 runbooks (`docs/runbooks.md`);
+  - training guides for each of the five roles, in English and Arabic (`docs/training/`);
+  - the section 18 acceptance map (`docs/acceptance.md`);
+  - the security review (`docs/security-review-phase5.md`);
+  - the load test (`loadtest/`) and security scan scripts (`security/`).
+
+Choices made where the requirements leave room (to confirm with the district):
+
+- The scoring rule language above is our reading of what the formula will need. Q9's formula
+  document may need more, for example a question that counts only if another is answered.
+- A supervisor asking for a school they are not assigned to gets 403 `school_not_assigned`,
+  audited, as section 18 says. This covers starting an evaluation and filtering the list.
+  Records by ID still answer 404, so their existence is not revealed.
+- The support view never changes anything:
+  - The server refuses any write carrying the view's header, and audits the refusal.
+  - The web app sends no write while a view is open, except ending it and signing out.
+  - Admins cannot open a view of another admin.
+- In Arabic, a cluster is المجمع and a supervisor is موجّه throughout the screens, emails and
+  exports.
+
+How it was verified:
+
+- 210 backend tests against MySQL 8, plus the real-ClamAV test on the Compose stack. They
+  cover:
+  - rule sets and recalculation, report scope for every role, export audits in both
+    languages;
+  - the support view's refusals, the per-person export's exclusions, settings validation;
+  - that no endpoint removes a record;
+  - that live updates' bulk audience gives the same answer as the access rule, for every
+    user and report state.
+- 21 web app unit tests. One parses every screen and fails on any text not taken from the
+  translations.
+- Security (`docs/security-review-phase5.md`), on the Compose stack with HTTPS:
+  - OWASP ZAP baseline: no failures.
+  - ZAP active scan of all 126 API endpoints, signed in as an admin: no failures and 2 low
+    warnings, both as designed.
+  - `pip-audit` and `npm audit`: no known vulnerabilities. Bandit: one false positive,
+    marked.
+  - One medium finding from the browser check, where the support view sent writes as the
+    admin: fixed before release.
+- Accessibility: axe-core (WCAG 2.1 AA) found no violations on 24 screens across four roles,
+  in English and Arabic, on a desktop and a phone. Tables scroll from the keyboard, the first
+  Tab reaches "skip to content", and sign-in works without a mouse.
+- Restore drill (`deploy/backup.sh`, `deploy/restore.sh`) on the Compose stack:
+  - Backup took 2 s and restore 5 s. From an empty server to service took 40 s, far inside the
+    8-hour RTO.
+  - Row counts matched, the audit chain verified, and every file matched its checksum.
+  - A design-scale database restored in 15 s.
+- Load test at design scale (`loadtest/`):
+  - Data: 500 schools, 10,000 teachers, 500 supervisors, 200,400 scanned reports, 50,100
+    evaluations and 20,000 requests.
+  - One API process, as in production, on a 4-core machine shared with MySQL and the load
+    generator.
+  - The first run found every large list over target: the report inbox at 690 ms, teachers
+    395 ms, requests 382 ms, the supervisor's report dashboard 1.3 s, and realtime delivery
+    at a 95th percentile of 4.7 s.
+  - The fixes:
+    - Each list page loads its related records in a few queries instead of one per row.
+    - Migration 0012 adds a stored review-priority column and covering indexes for the inbox,
+      the dashboard's coverage counts and record histories in the audit log.
+    - Live updates decide a report's audience in two queries for everyone connected.
+
+  | Measure | Target | Result (median / 95th percentile) |
+  |---|---|---|
+  | Report inbox, 50 per page (first page, page 200, one status) | < 300 ms | 64–82 / 79–110 ms |
+  | Evaluations, teachers, schools, supervisors, requests (admin) | < 300 ms | 28–76 / 33–103 ms |
+  | The same lists for a Cluster Head and a supervisor | < 300 ms | 15–27 / 19–32 ms |
+  | Report search by text across 200,000 reports | < 300 ms | 221 / 313 ms |
+  | Admin dashboard; global search (five lists in one call) | — | 277 / 321 ms; 383 / 443 ms |
+  | Standard reports on screen | — | 81–327 / 96–449 ms |
+  | Realtime: 500 connections (100 who may see, 400 other supervisors) | < 2 s | 63 / 75 ms; 1,000 of 1,000 delivered, none to the others |
+  | 20 ten-page scans (8.6 MB each) uploaded at once, resumable | < 30 s on 4G | 6.4 s on the server's network; add about 4 s per scan on 4G |
+  | 50 people at once for a minute | — | 35 requests a second, no errors, 372 / 1,088 ms |
+
+  - Report search by text is just over target at the 95th percentile. It searches titles and
+    notes for any part of a word, which reads every report. The OCR and full-text search in
+    Phase 6 replace it.
+  - With 50 people at once, the single API process is the limit, on this shared machine. The
+    district's server should have its own cores for the database. Several API processes need
+    the external broadcaster listed in Phase 6.
+
+Waiting on the district:
+
+- The formula document and its worked examples (Q9). Each becomes a rule set's example, and
+  the rule set activates only when all of them match.
+- The external penetration test on the release build (section 19). The review lists what it
+  should cover, and the browser-test seed makes accounts for each role on staging.
+- Real devices, carried over from Phase 4: Android phones and iPhones, the home screen
+  install, and scanning in real light.
+- The section 18 run on the district's staging server with its data, then sign-off.
+
 ---
 
 ## Phase 6: After v1
